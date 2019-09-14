@@ -63,6 +63,6 @@ global_tournament_df = global_tournament_df[global_tournament_df['id'].isin(glob
 #%%
 WHL_seasons_URL = 'https://api.sportradar.us/hockey-t1/ice/en/tournaments/sr:tournament:14361/seasons.json?api_key={0}'.format(global_hockey_API_key)
 WHL_seasons_response = rqst.get(WHL_seasons_URL)
-WHL_seasons_df
+# WHL_seasons_df
 
 #%%

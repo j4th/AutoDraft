@@ -5,6 +5,10 @@ import pandas as pd
 from pandas.io.json import json_normalize
 import requests as rqsts  
 
+
+
+## HERE YE BE DRAGONS
+# The following functions are either not complete or broken.
 def generate_games_df(schedule_df):
     games_df = pd.DataFrame()
     games_series = schedule_df.games

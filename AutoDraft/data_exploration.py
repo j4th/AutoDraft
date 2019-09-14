@@ -77,7 +77,7 @@ st.dataframe(get_roster(team_id=int(roster_team), season_id=int(roster_year)))
 st.write("Now we'll get a roster that covers all players that were active in a range of season. NOTE: this uses the team entered earlier.")
 
 @st.cache
-def merge_rosters(team_id=22, season_id_list=[20152016, 20162017, 20172018, 20182019]):
+def merge_team_rosters(team_id=22, season_id_list=[20152016, 20162017, 20172018, 20182019]):
     merged_roster_df = pd.DataFrame()
     for season in season_id_list:
         roster_df = get_roster(team_id=team_id, season_id=season)
@@ -85,6 +85,24 @@ def merge_rosters(team_id=22, season_id_list=[20152016, 20162017, 20172018, 2018
     merged_roster_df.drop_duplicates(inplace=True)
     return merged_roster_df
 
-merged_roster = merge_rosters(team_id=roster_team)
+merged_roster = merge_team_rosters(team_id=roster_team)
 st.dataframe(merged_roster)
+
+st.write("We'll start collecting time-series sets now for exploration.")
+
+@st.cache
+def get_player_season_game_stats(player_id=8478402, season_id=20182019):
+    stats_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/people/{0}?stats=gameLog&season={1}'.format(player_id, season_id))
+    if stats_response.status_code != 200:
+        st.error("Failed attempt to get player {0}'s game stats for season {1}.".format(player_id, season_id))
+        return
+    stats = stats_response.content
+    stats_df = pd.read_json(stats)
+    st.dataframe(stats_df)
+    stats_df = stats_df.people
+    stats_dict = dict(stats_df)
+    st.write(stats_dict)
+    return
+
+get_player_season_game_stats()
 
