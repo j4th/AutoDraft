@@ -1,4 +1,5 @@
 import json
+import streamlit as st
 import numpy as np 
 import pandas as pd
 from pandas.io.json import json_normalize
@@ -41,5 +42,3 @@ def get_season_schedule(seasons_df=get_seasons(), season_id=20182019):
     # st.dataframe(schedule_df.games)
     generate_games_df(schedule_df)
     return schedule_df
-
-st.dataframe(get_season_schedule(seasons_df=seasons_df))
