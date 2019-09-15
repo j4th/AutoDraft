@@ -99,40 +99,33 @@ def get_player_season_game_stats(player_id=8478402, season_id=20182019):
         return
     stats = stats_response.content
     stats_df = pd.read_json(stats)
-    # st.dataframe(stats_df)
     stats_df = json_normalize(stats_df.stats)
-    # st.dataframe(stats_df)
     stats_df = stats_df.splits
     stats_array = stats_df.array
-    # st.dataframe(stats_array)
     stats_list = stats_array[0]
     stats_df = pd.DataFrame()
     for game in stats_list:
         game_df = pd.DataFrame.from_dict(game).transpose()
         clean_df = pd.DataFrame()
-        # st.dataframe(game_df)
         for stat_type, stat_series in game_df.iterrows():
-            try:
-                stat_series.drop_duplicates(inplace=True)
-            except SystemError:
-                pass
+            if stat_type != 'stat': # the 'stat' stat type contains non-unique but desired values
+                try:
+                    stat_series.drop_duplicates(inplace=True)
+                except SystemError:
+                    pass
             stat_series.dropna(inplace=True)
             stat_df = pd.DataFrame(stat_series).transpose()
             new_columns = [stat_type + column.capitalize() for column in stat_df.columns if len(stat_df.columns) != 1]
             if len(new_columns) == 0: new_columns = stat_df.index
             stat_df.reset_index(drop=True, inplace=True)
             stat_df.columns = new_columns
-            # st.write(new_columns)
-            # st.dataframe(stat_df)
             clean_df = pd.concat([clean_df, stat_df], axis=1)
-            # st.dataframe(clean_df)
         game_df = clean_df.drop('gameContent', axis=1)
         game_df.set_index('gameGamepk', inplace=True)
-        # st.dataframe(game_df)
-        # st.dataframe(clean_df)
         stats_df = stats_df.append(game_df)
-        # st.dataframe(stats_df)
-    st.dataframe(stats_df) # 2018021268
     return stats_df
 
 player_df = get_player_season_game_stats(player_id=roster_player)
+st.dataframe(player_df)
+st.write('Season point history:')
+st.dataframe(player_df.loc[:, 'statPoints'])
