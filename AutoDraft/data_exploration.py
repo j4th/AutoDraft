@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
 import requests as rqsts
-import plotly.express as px  
+import plotly.express as px
 
 st.title('NHL API Dataset Assembly')
 st.write('This report will cover assembling a player-level game-by-game dataset for 4 NHL seasons.')
@@ -64,7 +64,7 @@ def get_roster(team_id=22, season_id=20182019):
         person_position = person['position']
         player_dict = {'name': person_info['fullName'],
                         'position': person_position['code']}
-        player_df = pd.DataFrame(player_dict, index=[person_info['id']])
+        player_df = pd.DataFrame(player_dict, index=[person_info['id']]) ## TODO: should change to not extract as int64
         # st.dataframe(player_df)20182019
         roster_df = roster_df.append(player_df)
     # st.dataframe(roster_df)
@@ -128,6 +128,7 @@ def get_player_season_game_stats(player_id=8478402, season_id=20182019):
 
 player_df = get_player_season_game_stats(player_id=roster_player)
 player_df.sort_index(inplace=True)
+st.write('{0} ({1}) stat dataframe for {2} season:'.format(merged_roster.loc[np.int(roster_player), 'name'], merged_roster.loc[np.int(roster_player), 'position'], roster_year))
 st.dataframe(player_df)
 st.write('Season (sorted) point history:')
 st.dataframe(player_df.loc[:, 'statPoints'])
@@ -144,5 +145,13 @@ def augment_player_dataframe(player_df=player_df):
 
 augmented_df = augment_player_dataframe(player_df=player_df)
 line_fig = px.line(augmented_df, x='date', y='cumStatpoints')
+line_fig.update_layout(title_text='test', title_x=0.5)
+line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
 
+@st.cache
+def assemble_stat_series(player_id_list=[8477934, 8476365], season_id=20182019, stat='cumStatpoints'):
+    for player_id in player_id_list:
+        player_name = None # TODO: write call to get player list; should be replaced with a lookup from a static data source
+        player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id))
+    return
