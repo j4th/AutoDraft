@@ -134,17 +134,36 @@ st.write('Season (sorted) point history:')
 st.dataframe(player_df.loc[:, 'statPoints'])
 
 @st.cache
-def augment_player_dataframe(player_df=player_df):
+def get_combined_player_season_game_stats(player_id=8478402, season_id_list=[20162017, 20172018, 20182019]): # TODO: add function to set whether each season should be individual cumulative totals or cumulative across all seasons
+    full_df = pd.DataFrame()
+    for season_id in season_id_list:
+        season_df = get_player_season_game_stats(player_id=player_id, season_id=season_id)
+        full_df = pd.concat([full_df, season_df])
+    return full_df
+
+combined_player_df = get_combined_player_season_game_stats(player_id=roster_player)
+combined_player_df.sort_index(inplace=True)
+st.write('{0} ({1}) combined stat dataframe for {2} seasons:'.format(merged_roster.loc[np.int(roster_player), 'name'], merged_roster.loc[np.int(roster_player), 'position'], 3))
+st.dataframe(combined_player_df)
+
+@st.cache
+def augment_player_dataframe(player_df=player_df): # TODO: add in a game number for the player (will this work properly for injured players?)
     augmented_df = player_df
+    augmented_df.sort_index(inplace=True)
     points_series = augmented_df.loc[:, 'statPoints']
     points_series = points_series.cumsum()
     points_series.name = 'cum' + points_series.name.capitalize()
     augmented_df = pd.concat([augmented_df, points_series], axis=1)
-    st.dataframe(augmented_df)
     return augmented_df
 
 augmented_df = augment_player_dataframe(player_df=player_df)
 line_fig = px.line(augmented_df, x='date', y='cumStatpoints')
+line_fig.update_layout(title_text='test', title_x=0.5)
+line_fig.update_yaxes(title_text='Cumulative Points')
+st.plotly_chart(line_fig)
+
+multi_season_df = augment_player_dataframe(combined_player_df)
+line_fig = px.line(multi_season_df, x='date', y='cumStatpoints')
 line_fig.update_layout(title_text='test', title_x=0.5)
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
