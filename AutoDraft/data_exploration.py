@@ -93,7 +93,7 @@ st.write("We'll start collecting time-series sets now for exploration.")
 roster_player = st.text_input('Enter a player ID from the table above:', '8477934')
 
 @st.cache
-def get_player_season_game_stats(player_id=8478402, season_id=20182019):
+def get_player_season_game_stats(player_id=8477934, season_id=20182019):
     stats_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/people/{0}/stats?stats=gameLog&season={1}'.format(player_id, season_id))
     if stats_response.status_code != 200:
         st.error("Failed attempt to get player {0}'s game stats for season {1}.".format(player_id, season_id))
@@ -134,7 +134,7 @@ st.write('Season (sorted) point history:')
 st.dataframe(player_df.loc[:, 'statPoints'])
 
 @st.cache
-def get_combined_player_season_game_stats(player_id=8478402, season_id_list=[20162017, 20172018, 20182019]): # TODO: add function to set whether each season should be individual cumulative totals or cumulative across all seasons
+def get_combined_player_season_game_stats(player_id=8477934, season_id_list=[20162017, 20172018, 20182019]): # TODO: add function to set whether each season should be individual cumulative totals or cumulative across all seasons
     full_df = pd.DataFrame()
     for season_id in season_id_list:
         season_df = get_player_season_game_stats(player_id=player_id, season_id=season_id)
@@ -154,23 +154,35 @@ def augment_player_dataframe(player_df=player_df): # TODO: add in a game number 
     points_series = points_series.cumsum()
     points_series.name = 'cum' + points_series.name.capitalize()
     augmented_df = pd.concat([augmented_df, points_series], axis=1)
+    augmented_df.insert(0, 'gameNumber', [i for i in range(len(augmented_df))])
     return augmented_df
 
 augmented_df = augment_player_dataframe(player_df=player_df)
-line_fig = px.line(augmented_df, x='date', y='cumStatpoints')
+line_fig = px.line(augmented_df, x='gameNumber', y='cumStatpoints')
 line_fig.update_layout(title_text='test', title_x=0.5)
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
 
 multi_season_df = augment_player_dataframe(combined_player_df)
-line_fig = px.line(multi_season_df, x='date', y='cumStatpoints')
+line_fig = px.line(multi_season_df, x='gameNumber', y='cumStatpoints')
 line_fig.update_layout(title_text='test', title_x=0.5)
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
 
 @st.cache
-def assemble_stat_series(player_id_list=[8477934, 8476365], season_id=20182019, stat='cumStatpoints'):
+def get_player_name(player_id=8477934):
+    player_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/people/{0}/'.format(player_id))
+    player = player_response.content
+    player = pd.read_json(player)
+    player = player.people[0]
+    player_name = player['fullName']
+    return player_name
+
+get_player_name()
+
+@st.cache
+def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476365], season_id=20182019, stat='cumStatpoints'):
     for player_id in player_id_list:
-        player_name = None # TODO: write call to get player list; should be replaced with a lookup from a static data source
+        player_name = get_player_name(player_id)
         player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id))
     return
