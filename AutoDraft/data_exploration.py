@@ -3,7 +3,8 @@ import streamlit as st
 import numpy as np 
 import pandas as pd
 from pandas.io.json import json_normalize
-import requests as rqsts  
+import requests as rqsts
+import plotly.express as px  
 
 st.title('NHL API Dataset Assembly')
 st.write('This report will cover assembling a player-level game-by-game dataset for 4 NHL seasons.')
@@ -126,6 +127,22 @@ def get_player_season_game_stats(player_id=8478402, season_id=20182019):
     return stats_df
 
 player_df = get_player_season_game_stats(player_id=roster_player)
+player_df.sort_index(inplace=True)
 st.dataframe(player_df)
-st.write('Season point history:')
+st.write('Season (sorted) point history:')
 st.dataframe(player_df.loc[:, 'statPoints'])
+
+@st.cache
+def augment_player_dataframe(player_df=player_df):
+    augmented_df = player_df
+    points_series = augmented_df.loc[:, 'statPoints']
+    points_series = points_series.cumsum()
+    points_series.name = 'cum' + points_series.name.capitalize()
+    augmented_df = pd.concat([augmented_df, points_series], axis=1)
+    st.dataframe(augmented_df)
+    return augmented_df
+
+augmented_df = augment_player_dataframe(player_df=player_df)
+line_fig = px.line(augmented_df, x='date', y='cumStatpoints')
+st.plotly_chart(line_fig)
+
