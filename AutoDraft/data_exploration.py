@@ -196,7 +196,7 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
         # player_small_df.rename(columns={stat: player_name}, inplace=True)
         multiplayer_df = pd.concat([multiplayer_df, player_small_df], axis=0)
     multiplayer_df.reset_index(drop=True, inplace=True)
-    if shape == 'rows': # TODO: is this necessary?
+    if shape == 'rows': # TODO: fix this when required to feed data in a row-per-player fashion
         multiplayer_df = multiplayer_df.transpose()
         # multiplayer_df.set_index(player_id_list, inplace=True)
         multiplayer_df.insert(0, 'name', multiplayer_df.index)
