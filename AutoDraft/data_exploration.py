@@ -143,8 +143,6 @@ def get_combined_player_season_game_stats(player_id=8477934, season_id_list=[201
 
 combined_player_df = get_combined_player_season_game_stats(player_id=roster_player)
 combined_player_df.sort_index(inplace=True)
-st.write('{0} ({1}) combined stat dataframe for {2} seasons:'.format(merged_roster.loc[np.int(roster_player), 'name'], merged_roster.loc[np.int(roster_player), 'position'], 3))
-st.dataframe(combined_player_df)
 
 @st.cache
 def augment_player_dataframe(player_df=player_df): # TODO: add in a game number for the player (will this work properly for injured players?)
@@ -154,10 +152,14 @@ def augment_player_dataframe(player_df=player_df): # TODO: add in a game number 
     points_series = points_series.cumsum()
     points_series.name = 'cum' + points_series.name.capitalize()
     augmented_df = pd.concat([augmented_df, points_series], axis=1)
-    augmented_df.insert(0, 'gameNumber', [i for i in range(len(augmented_df))])
+    augmented_df.insert(0, 'gameNumber', [i+1 for i in range(len(augmented_df))])
     return augmented_df
 
 augmented_df = augment_player_dataframe(player_df=player_df)
+
+st.write('{0} ({1}) combined and augmented stat dataframe for {2} seasons:'.format(merged_roster.loc[np.int(roster_player), 'name'], merged_roster.loc[np.int(roster_player), 'position'], 3))
+st.dataframe(augmented_df)
+
 line_fig = px.line(augmented_df, x='gameNumber', y='cumStatpoints')
 line_fig.update_layout(title_text='test', title_x=0.5)
 line_fig.update_yaxes(title_text='Cumulative Points')
@@ -178,11 +180,33 @@ def get_player_name(player_id=8477934):
     player_name = player['fullName']
     return player_name
 
-get_player_name()
-
 @st.cache
-def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476365], season_id=20182019, stat='cumStatpoints'):
+def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20182019], stat='cumStatpoints', index='gameNumber', shape='cols'):
+    multiplayer_df = pd.DataFrame()
     for player_id in player_id_list:
         player_name = get_player_name(player_id)
-        player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id))
-    return
+        if len(season_id_list) == 1:
+            player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id_list[0]))
+        else:
+            player_df = augment_player_dataframe(get_combined_player_season_game_stats(player_id=player_id, season_id_list=season_id_list))
+        player_small_df = player_df.loc[:, ['date', 'gameNumber', stat]]
+        player_small_df.reset_index(drop=True, inplace=True)
+        player_small_df.insert(0, 'name', [player_name for _ in range(len(player_small_df))])
+        # player_small_df.set_index('gameNumber', inplace=True)
+        # player_small_df.rename(columns={stat: player_name}, inplace=True)
+        multiplayer_df = pd.concat([multiplayer_df, player_small_df], axis=0)
+    multiplayer_df.reset_index(drop=True, inplace=True)
+    if shape == 'rows': # TODO: is this necessary?
+        multiplayer_df = multiplayer_df.transpose()
+        # multiplayer_df.set_index(player_id_list, inplace=True)
+        multiplayer_df.insert(0, 'name', multiplayer_df.index)
+        multiplayer_df.insert(0, 'playerId', player_id_list)
+        multiplayer_df.set_index('playerId', inplace=True)
+    return multiplayer_df
+
+multiplayer_df = assemble_multiplayer_stat_dataframe()
+st.dataframe(multiplayer_df)
+line_fig = px.line(multiplayer_df, x='date', y='cumStatpoints', color='name')
+line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, legend=dict(x=0.25, y=-.5))
+line_fig.update_yaxes(title_text='Cumulative Points')
+st.plotly_chart(line_fig)
