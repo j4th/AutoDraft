@@ -151,7 +151,7 @@ def augment_player_dataframe(player_df=player_df):
     try:
         points_series = augmented_df.loc[:, 'statPoints']
     except KeyError: # TODO: verify why there are no points for these players; THINK its because I asked for seasons that didn't exist. still necessary?
-        points_series = pd.DataFrame({'cumStatPoints': [0 for _ in range(len(augmented_df))]})
+        points_series = pd.DataFrame({'cumStatPoints': [None for _ in range(len(augmented_df))]})
     points_series = points_series.cumsum()
     try:
         points_series.name = 'cum' + points_series.name.capitalize()
@@ -187,7 +187,7 @@ def get_player_name(player_id=8477934):
     return player_name
 
 @st.cache
-def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20182019], stat='cumStatpoints', index='gameNumber', shape='cols'):
+def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20152016, 20162017, 20172018, 20182019], stat='cumStatpoints', index='gameNumber', shape='cols'):
     multiplayer_df = pd.DataFrame()
     for player_id in player_id_list:
         player_name = get_player_name(player_id)
@@ -210,9 +210,11 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
         multiplayer_df.set_index('playerId', inplace=True)
     return multiplayer_df
 
-multiplayer_df = assemble_multiplayer_stat_dataframe(player_id_list=list(get_roster(team_id=int(roster_team), season_id=int(roster_year)).index))
+multiplayer_df = assemble_multiplayer_stat_dataframe(player_id_list=list(merge_team_rosters(team_id=roster_team).index))
 st.dataframe(multiplayer_df)
 line_fig = px.line(multiplayer_df, x='date', y='cumStatpoints', color='name')
 line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, showlegend=False, legend=dict(x=-.5, y=-2))
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
+
+multiplayer_df.to_csv('./data/oilers_multi_season_cumulative_points.csv')
