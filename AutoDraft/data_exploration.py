@@ -145,12 +145,18 @@ combined_player_df = get_combined_player_season_game_stats(player_id=roster_play
 combined_player_df.sort_index(inplace=True)
 
 @st.cache
-def augment_player_dataframe(player_df=player_df): # TODO: add in a game number for the player (will this work properly for injured players?)
+def augment_player_dataframe(player_df=player_df):
     augmented_df = player_df
     augmented_df.sort_index(inplace=True)
-    points_series = augmented_df.loc[:, 'statPoints']
+    try:
+        points_series = augmented_df.loc[:, 'statPoints']
+    except KeyError: # TODO: verify why there are no points for these players; THINK its because I asked for seasons that didn't exist. still necessary?
+        points_series = pd.DataFrame({'cumStatPoints': [0 for _ in range(len(augmented_df))]})
     points_series = points_series.cumsum()
-    points_series.name = 'cum' + points_series.name.capitalize()
+    try:
+        points_series.name = 'cum' + points_series.name.capitalize()
+    except AttributeError:
+        pass
     augmented_df = pd.concat([augmented_df, points_series], axis=1)
     augmented_df.insert(0, 'gameNumber', [i+1 for i in range(len(augmented_df))])
     return augmented_df
@@ -204,9 +210,9 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
         multiplayer_df.set_index('playerId', inplace=True)
     return multiplayer_df
 
-multiplayer_df = assemble_multiplayer_stat_dataframe()
+multiplayer_df = assemble_multiplayer_stat_dataframe(player_id_list=list(get_roster(team_id=int(roster_team), season_id=int(roster_year)).index))
 st.dataframe(multiplayer_df)
 line_fig = px.line(multiplayer_df, x='date', y='cumStatpoints', color='name')
-line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, legend=dict(x=0.25, y=-.5))
+line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, showlegend=False, legend=dict(x=-.5, y=-2))
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
