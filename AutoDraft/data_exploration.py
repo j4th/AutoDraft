@@ -179,19 +179,21 @@ line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
 
 @st.cache
-def get_player_name(player_id=8477934):
+def get_player_name_position(player_id=8477934):
     player_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/people/{0}/'.format(player_id))
     player = player_response.content
     player = pd.read_json(player)
     player = player.people[0]
     player_name = player['fullName']
-    return player_name
+    player_position = player['primaryPosition']['code']
+    return player_name, player_position
 
 @st.cache
 def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20152016, 20162017, 20172018, 20182019], stat_list=['cumStatpoints'], shape='cols'):
     multiplayer_df = pd.DataFrame()
     for player_id in player_id_list:
-        player_name = get_player_name(player_id)
+        player_name, player_position = get_player_name_position(player_id)
+        if player_position == 'G': continue
         if len(season_id_list) == 1:
             player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id_list[0]))
         else:
@@ -217,6 +219,6 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
 multiplayer_df = assemble_multiplayer_stat_dataframe(player_id_list=list(merge_team_rosters(team_id=roster_team).index))
 st.dataframe(multiplayer_df)
 line_fig = px.line(multiplayer_df, x='date', y='cumStatpoints', color='name')
-line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, showlegend=False, legend=dict(x=-.5, y=-2))
+line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, showlegend=True, legend=dict(x=1, y=-2))
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
