@@ -6,4 +6,5 @@ json
 numpy
 pandas
 requests
-plotly==3.10
+plotly==3.10.0
+plotly_express==0.3.1

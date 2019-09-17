@@ -145,19 +145,20 @@ combined_player_df = get_combined_player_season_game_stats(player_id=roster_play
 combined_player_df.sort_index(inplace=True)
 
 @st.cache
-def augment_player_dataframe(player_df=player_df):
+def augment_player_dataframe(player_df=player_df, cumulative_stat_list=['statPoints']):
     augmented_df = player_df
     augmented_df.sort_index(inplace=True)
-    try:
-        points_series = augmented_df.loc[:, 'statPoints']
-    except KeyError: # TODO: verify why there are no points for these players; THINK its because I asked for seasons that didn't exist. still necessary?
-        points_series = pd.DataFrame({'cumStatPoints': [None for _ in range(len(augmented_df))]})
-    points_series = points_series.cumsum()
-    try:
-        points_series.name = 'cum' + points_series.name.capitalize()
-    except AttributeError:
-        pass
-    augmented_df = pd.concat([augmented_df, points_series], axis=1)
+    for stat in cumulative_stat_list:
+        try:
+            stat_series = augmented_df.loc[:, stat]
+        except KeyError: # TODO: verify why there are no points for these players; THINK its because I asked for seasons that didn't exist. still necessary?
+            stat_series = pd.DataFrame({'cum'+stat.capitalize(): [None for _ in range(len(augmented_df))]})
+        stat_series = stat_series.cumsum()
+        try:
+            stat_series.name = 'cum' + stat_series.name.capitalize()
+        except AttributeError:
+            pass
+        augmented_df = pd.concat([augmented_df, stat_series], axis=1)
     augmented_df.insert(0, 'gameNumber', [i+1 for i in range(len(augmented_df))])
     return augmented_df
 
@@ -187,7 +188,7 @@ def get_player_name(player_id=8477934):
     return player_name
 
 @st.cache
-def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20152016, 20162017, 20172018, 20182019], stat='cumStatpoints', index='gameNumber', shape='cols'):
+def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 8473468], season_id_list=[20152016, 20162017, 20172018, 20182019], stat_list=['cumStatpoints'], shape='cols'):
     multiplayer_df = pd.DataFrame()
     for player_id in player_id_list:
         player_name = get_player_name(player_id)
@@ -195,7 +196,10 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
             player_df = augment_player_dataframe(get_player_season_game_stats(player_id=player_id, season_id=season_id_list[0]))
         else:
             player_df = augment_player_dataframe(get_combined_player_season_game_stats(player_id=player_id, season_id_list=season_id_list))
-        player_small_df = player_df.loc[:, ['date', 'gameNumber', stat]]
+        if len(stat_list) != 0:
+            player_small_df = player_df.loc[:, ['date', 'gameNumber'] + stat_list]
+        else:
+            player_small_df = player_df
         player_small_df.reset_index(drop=True, inplace=True)
         player_small_df.insert(0, 'name', [player_name for _ in range(len(player_small_df))])
         # player_small_df.set_index('gameNumber', inplace=True)
@@ -216,5 +220,3 @@ line_fig = px.line(multiplayer_df, x='date', y='cumStatpoints', color='name')
 line_fig.update_layout(title_text='test', title_x=0.5, xaxis_rangeslider_visible=True, showlegend=False, legend=dict(x=-.5, y=-2))
 line_fig.update_yaxes(title_text='Cumulative Points')
 st.plotly_chart(line_fig)
-
-multiplayer_df.to_csv('./data/oilers_multi_season_cumulative_points.csv')
