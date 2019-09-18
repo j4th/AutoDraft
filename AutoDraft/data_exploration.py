@@ -243,7 +243,7 @@ def get_all_rosters(season_id_list=[20152016, 20162017, 20172018, 20182019]):
     team_ids = teams_df.loc[:, 'id']
     full_roster_df = pd.DataFrame()
     for team_id in team_ids:
-        team_full_roster = merge_team_rosters(team_id=team_id, season_id_list=season_id_list)
+        team_full_roster = merge_team_rosters(team_id=team_id, season_id_list=season_id_list) # TODO: save player id's
         full_roster_df = pd.concat([full_roster_df, team_full_roster])
     return full_roster_df
 
