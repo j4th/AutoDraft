@@ -1,5 +1,6 @@
 .vscode/
 keys/
+AutoDraft/.streamlit
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

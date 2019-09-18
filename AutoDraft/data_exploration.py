@@ -70,8 +70,11 @@ def get_roster(team_id=22, season_id=20182019):
     # st.dataframe(roster_df)
     return roster_df
 
-roster_team = st.text_input('Enter a team ID from the table above:', '22')
-roster_year = st.text_input('Enter a season ID (eg. 20182019 for the 2018-2019 season)', '20182019')
+# roster_team = st.text_input('Enter a team ID from the table above:', '22')
+roster_team = '22'
+# roster_year = st.text_input('Enter a season ID (eg. 20182019 for the 2018-2019 season)', '20182019')
+roster_year = '20182019'
+
 st.write("Here is that team's roster for that year:")
 st.dataframe(get_roster(team_id=int(roster_team), season_id=int(roster_year)))
 
@@ -91,7 +94,8 @@ merged_roster = merge_team_rosters(team_id=roster_team)
 st.dataframe(merged_roster)
 
 st.write("We'll start collecting time-series sets now for exploration.")
-roster_player = st.text_input('Enter a player ID from the table above:', '8477934')
+# roster_player = st.text_input('Enter a player ID from the table above:', '8477934')
+roster_player = '8477934'
 
 # @st.cache
 def get_player_season_game_stats(player_id=8477934, season_id=20182019):
@@ -211,6 +215,7 @@ def assemble_multiplayer_stat_dataframe(player_id_list=[8477934, 8476356, 847346
             player_small_df.insert(0, 'errorName', [player_name for _ in range(len(player_small_df))])
         # player_small_df.set_index('gameNumber', inplace=True)
         # player_small_df.rename(columns={stat: player_name}, inplace=True)
+        player_small_df.to_csv('./data/assemble_multiplayer_stat_dataframe_TEMP.csv')
         multiplayer_df = pd.concat([multiplayer_df, player_small_df], axis=0)
         st.write(multiplayer_df.shape)
     multiplayer_df.reset_index(drop=True, inplace=True)
