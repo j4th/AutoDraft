@@ -26,41 +26,53 @@ def load_pickle(path='./data/arima_results.p'):
 data = load_csv()
 results = load_pickle()
 
-st.text('Data shape: {0}\nResults shape: {1}'.format(data.shape, results.shape))
+st.text('Stats data shape: {0}\nARIMA results shape: {1}'.format(data.shape, results.shape))
+st.write('Stat dataframe head:')
 st.dataframe(data.head())
+st.write('ARIMA results dataframe:')
 st.dataframe(results)
 
-# st.dataframe(results)
-# st.dataframe(data)
-# results.hist('testRmse')
-# fig = plt.gcf()
-# st.pyplot(fig)
+def get_hists(metric_list, range_metric, results=results):
+    hists = []
+    for metric in metric_list:
+        if metric == range_metric:
+            hist, edges = np.histogram(results[metric])
+            hists.append(hist)
+        else:
+            hist, _ = np.histogram(results[metric])
+            hists.append(hist)
+    return hists, edges
 
-test_hist, edges = np.histogram(results['testRmse'])
-train_hist, _ = np.histogram(results['trainRmse'])
-
-rmse_hist = figure(plot_height = 600, plot_width = 600, 
-                    title = "Histogram of ARIMA test RMSE's",
+def plot_hists(metric_list, results=results):
+    fig = figure(plot_height = 600, plot_width = 600, 
+                    title = "Histogram of ARIMA RMSE's",
                     x_axis_label = 'RMSE', 
                     y_axis_label = '# of players')
 
-rmse_hist.quad(bottom=0, top=test_hist, 
-                left=edges[:-1], right=edges[1:], 
-                fill_color='red', line_color='black', legend='test')
+    metric_df = pd.concat([results[metric] for metric in metric_list], axis=1)
+    max_range = metric_df.max() - metric_df.min()
+    max_range_metric = max_range.idxmax()
 
-rmse_hist.quad(bottom=0, top=train_hist, 
-                left=edges[:-1], right=edges[1:], 
-                fill_color='blue', line_color='black', legend='train')
 
-rmse_hist.legend.location = 'top_right'
-rmse_hist.legend.click_policy = 'hide'
+    hists, edges = get_hists(metric_list, range_metric=max_range_metric)
+    # TODO: handle colors/length mismatch
+    for metric, hist, color in zip(metric_list, hists, ['blue', 'red']):
+        fig.quad(bottom=0, top=hist, 
+                        left=edges[:-1], right=edges[1:], 
+                        fill_color=color, line_color='black', legend=metric)
 
-st.bokeh_chart(rmse_hist)
+    fig.legend.location = 'top_right'
+    fig.legend.click_policy = 'hide'
+
+    st.bokeh_chart(fig)
+    return fig
+
+plot_hists(['testRmse', 'trainRmse'])
 
 test_player = st.text_input('Player to predict:', 'Nico Hischier')
 
 # @st.cache
-def calculate_and_plot(data=data, results=results, player_name=test_player):
+def calculate_predictions(data=data, results=results, player_name=test_player):
     test_results = results.loc[test_player, :]
     test_residuals = test_results.testResiduals
     train_residuals = test_results.trainResiduals
@@ -84,12 +96,16 @@ def calculate_and_plot(data=data, results=results, player_name=test_player):
 
     full_frame['predictions'] = full_frame.apply(lambda row: row.cumStatpoints + row.residuals, axis=1)
     # st.dataframe(full_frame)
+    return full_frame, player_name
 
-    dates = full_frame.index.values.astype(np.datetime64)
+# @st.cache
+def plot_actual_predictions_series(series_dataframe=calculate_predictions(player_name=test_player)[0],
+                            player_name=calculate_predictions(player_name=test_player)[1]):
+    dates = series_dataframe.index.values.astype(np.datetime64)
     start_date = dt.strptime('2018-10-03', '%Y-%m-%d')
 
-    real_source = ColumnDataSource(data=dict(date=dates, points=full_frame['cumStatpoints']))
-    pred_source = ColumnDataSource(data=dict(date=dates, points=full_frame['predictions']))
+    real_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe['cumStatpoints']))
+    pred_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe['predictions']))
 
     player_line = figure(title='{0} (Train RMSE: {1:.3f}, Test RMSE: {2:.3f}'.format(test_player, results.loc[player_name, 'trainRmse'], results.loc[player_name, 'testRmse']),
                             plot_height=300, plot_width=800, tools="xpan", toolbar_location=None,
@@ -123,23 +139,11 @@ def calculate_and_plot(data=data, results=results, player_name=test_player):
     select.toolbar.active_multi = range_tool
     select.add_layout(test_start)
 
-    st.bokeh_chart(column(player_line, select))
+    chart = column(player_line, select)
+
+    st.bokeh_chart(chart)
     st.write("{}'s dataframe:".format(player_name))
-    st.dataframe(full_frame)
-    return full_frame
+    st.dataframe(series_dataframe)
+    return chart
 
-full_frame = calculate_and_plot(player_name=test_player)
-
-# player_line.legend.location = 'top_left'
-# player_line.legend.click_policy = 'hide'
-# st.bokeh_chart(player_line)
-
-fig = plt.figure()
-full_frame.plot(x='date', y='predictions')
-full_frame.plot(x='date', y='cumStatpoints')
-# fig = plt.gcf()
-st.pyplot(fig)
-
-# plt.stem()
-# fig = plt.gcf()
-# st.pyplot(fig)
+plot_actual_predictions_series(player_name=test_player)
