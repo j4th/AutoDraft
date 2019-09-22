@@ -10,7 +10,7 @@ from bokeh.plotting import figure, show
 from pandas.plotting import autocorrelation_plot
 from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.seasonal import seasonal_decompose
-# from pyramid.arima import auto_arima
+import pmdarima as pm
 import NHL_API as nhl
 
 @st.cache
@@ -19,7 +19,7 @@ def load_csv(path='./data/full_dataset_4_seasons.csv'):
     return data
 
 # @st.cache
-def load_pickle(path='./data/arima_results.p'):
+def load_pickle(path='./data/arima_results_m82.p'):
     data = pd.read_pickle(path)
     return data
 

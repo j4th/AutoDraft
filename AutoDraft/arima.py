@@ -1,4 +1,4 @@
-import time
+import time, copy
 import pandas as pd
 import matplotlib.pyplot as plt 
 import streamlit as st
@@ -6,7 +6,7 @@ import numpy as np
 from pandas.plotting import autocorrelation_plot
 from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.seasonal import seasonal_decompose
-from pyramid.arima import auto_arima
+import pmdarima as pm
 from scipy.stats import boxcox
 from scipy.special import inv_boxcox
 import NHL_API as nhl
@@ -21,10 +21,10 @@ def load_pickle(path='./data/temp/arima_results.p'):
     data = pd.read_pickle(path)
     return data
 
-temp_results = load_pickle()
-st.write('Current shape of ARIMA results: {}'.format(temp_results.shape))
+# temp_results = load_pickle()
+# st.write('Current shape of ARIMA results: {}'.format(temp_results.shape))
 
-data = load_csv()
+data = copy.deepcopy(load_csv())
 data['date'] = pd.to_datetime(data['date'])
 full_roster = load_csv('./data/full_roster_4_seasons.csv')
 st.write('Number of players captured: {}'.format(full_roster.shape[0]))
@@ -85,89 +85,93 @@ def calculate_test_residuals(prediction_array, test_data):
     residuals = pd.DataFrame(residuals)
     return residuals
 
-smaller_test_player_train = smaller_test_player[:'2018-10-03']
-smaller_test_player_test = smaller_test_player['2018-10-03':]
+# smaller_test_player_train = smaller_test_player[:'2018-10-03']
+# smaller_test_player_test = smaller_test_player['2018-10-03':]
+
+# # @st.cache
+# def test_arima(y=smaller_test_player_train, y_test=smaller_test_player_test, transform='none'):
+#     if transform == 'log':
+#         smaller_test_player_train.loc[:, 'logValues'] = np.log(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
+#         smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
+#     elif transform == 'boxcox':
+#         smaller_test_player_train.loc[:, 'transformedValues'], lmbda = boxcox(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
+#         smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
+#         st.write('Transformed (lambda = {}) DF:'.format(lmbda))
+#         st.dataframe(smaller_test_player_train)
+#     st.write('Searching and building model...')
+#     start_time = time.time()
+#     stepwise_model = pm.auto_arima(smaller_test_player_train, start_p=1, start_q=1,
+#                             max_p=5, max_q=5, max_d=3, m=82,
+#                             start_P=0, start_Q=0, seasonal=True,
+#                             information_criterion='aicc',
+#                             error_action='ignore',  
+#                             suppress_warnings=True, 
+#                             stepwise=True)
+#     st.write('Model build done. Fitting...')
+#     stepwise_model.fit(smaller_test_player_train)
+#     predictions, intervals = stepwise_model.predict(n_periods=smaller_test_player_test.shape[0], return_conf_int=True)
+#     intervals = pd.DataFrame(intervals)
+#     if transform == 'log':
+#         predictions = np.exp(predictions)
+#         intervals = np.exp(intervals)
+#     elif transform == 'boxcox':
+#         predictions = inv_boxcox(predictions, lmbda)
+#         intervals = inv_boxcox(intervals, lmbda)
+#     st.dataframe(predictions)
+#     end_time = time.time() 
+#     st.write('Auto-ARIMA took {:.3f} seconds to complete.'.format(end_time-start_time))
+#     return stepwise_model, predictions, intervals
+
+# stepwise_model, predictions, intervals = test_arima()
+# test_residuals = calculate_test_residuals(predictions, smaller_test_player_test)
+# testMfe, testMae, testRmse, testResiduals = calculate_errors(test_residuals)
+
+# st.text(stepwise_model.summary())
+
+# train_residuals = pd.DataFrame(stepwise_model.resid())
+
+# train_residuals.plot()
+# fig = plt.gcf()
+# st.pyplot(fig)
+
+# train_residuals.plot(kind='kde')
+# fig = plt.gcf()
+# st.pyplot(fig)
+
+# test_residuals.plot()
+# fig = plt.gcf()
+# st.pyplot(fig)
+
+# test_residuals.plot(kind='kde')
+# fig = plt.gcf()
+# st.pyplot(fig)
+
+# model_params = stepwise_model.get_params()
+# p, d, q = model_params['order']
+# P, D, Q, s = model_params['seasonal_order']
+# st.write('Model p, d, and q, respectively: {0}, {1}, {2}'.format(p, d, q))
+# st.write('Model P, D, Q, and s respectively: {0}, {1}, {2}, {3}'.format(P, D, Q, s))
+# model_coeffs = stepwise_model.params()
+# model_aic = stepwise_model.aic()
+# model_score = stepwise_model.oob()
 
 # @st.cache
-def test_arima(y=smaller_test_player_train, y_test=smaller_test_player_test, transform='boxcox'):
-    if transform == 'log':
-        smaller_test_player_train.loc[:, 'logValues'] = np.log(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
-        smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
-    elif transform == 'boxcox':
-        smaller_test_player_train.loc[:, 'transformedValues'], lmbda = boxcox(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
-        smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
-        st.write('Transformed (lambda = {}) DF:'.format(lmbda))
-        st.dataframe(smaller_test_player_train)
-    start_time = time.time()
-    stepwise_model = auto_arima(smaller_test_player_train, start_p=1, start_q=1,
-                            max_p=5, max_q=5, max_d=2, m=82,
-                            start_P=0, start_Q=0, seasonal=True,
-                            information_criterion='aicc',
-                            error_action='ignore',  
-                            suppress_warnings=True, 
-                            stepwise=True)
-    st.write('Model build done. Fitting...')
-    stepwise_model.fit(smaller_test_player_train)
-    predictions, intervals = stepwise_model.predict(n_periods=smaller_test_player_test.shape[0], return_conf_int=True)
-    intervals = pd.DataFrame(intervals)
-    if transform == 'log':
-        predictions = np.exp(predictions)
-        intervals = np.exp(intervals)
-    elif transform == 'boxcox':
-        predictions = inv_boxcox(predictions, lmbda)
-        intervals = inv_boxcox(intervals, lmbda)
-    st.dataframe(predictions)
-    end_time = time.time() 
-    st.write('Auto-ARIMA took {:.3f} seconds to complete.'.format(end_time-start_time))
-    return stepwise_model, predictions, intervals
-
-stepwise_model, predictions, intervals = test_arima()
-test_residuals = calculate_test_residuals(predictions, smaller_test_player_test)
-testMfe, testMae, testRmse, testResiduals = calculate_errors(test_residuals)
-
-st.text(stepwise_model.summary())
-
-train_residuals = pd.DataFrame(stepwise_model.resid())
-
-train_residuals.plot()
-fig = plt.gcf()
-st.pyplot(fig)
-
-train_residuals.plot(kind='kde')
-fig = plt.gcf()
-st.pyplot(fig)
-
-test_residuals.plot()
-fig = plt.gcf()
-st.pyplot(fig)
-
-test_residuals.plot(kind='kde')
-fig = plt.gcf()
-st.pyplot(fig)
-
-model_params = stepwise_model.get_params()
-p, d, q = model_params['order']
-P, D, Q, s = model_params['seasonal_order']
-st.write('Model p, d, and q, respectively: {0}, {1}, {2}'.format(p, d, q))
-st.write('Model P, D, Q, and s respectively: {0}, {1}, {2}, {3}'.format(P, D, Q, s))
-model_coeffs = stepwise_model.params()
-model_aic = stepwise_model.aic()
-model_score = stepwise_model.oob()
-
-# @st.cache
-def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumStatpoints' , forecast_from='2018-10-03', player_id=None, roster=None, p=3, d=1, q=1, summary=False):
+def player_arima(data, player_name, index='date' ,feature='cumStatpoints' , forecast_from='2018-10-03', player_id=None, roster=None, summary=False):
     if player_id and type(roster) != None: # TODO: add logic for if the player ID is given but not a roster (use function in package)
         player_name = roster[roster['Unnamed: 0'] == player_id]
     player_df = data[data['name'] == player_name]
+    player_df.drop_duplicates(subset='date', keep='first', inplace=True)
     player_train_df = player_df[player_df['date'] < forecast_from]
     player_test_df = player_df[player_df['date'] >= forecast_from]
-    for df in [player_train_df, player_test_df]:
-        df = df.loc[:, [index, feature]]
-        df = df.set_index(index, drop=True)
+    # st.dataframe(player_test_df)
+    # for df in [player_train_df, player_test_df]:
+    #     df = df.loc[:, [index, feature]]
+    #     df = df.set_index(index, drop=True)
+    # st.dataframe(player_test_df)
     player_train_df = player_train_df.loc[:, [index, feature]]
-    # player_train_df = player_train_df.set_index(index, drop=True)
-    # player_test_df = player_test_df.loc[:, [index, feature]]
-    # player_test_df = player_test_df.set_index(index, drop=True)
+    player_train_df = player_train_df.set_index(index, drop=True)
+    player_test_df = player_test_df.loc[:, [index, feature]]
+    player_test_df = player_test_df.set_index(index, drop=True)
     # player_train_df = player_train_df[:'2018-10-03']
     if player_train_df.shape[0] == 0:
         st.write('{} is a rookie!'.format(player_name))
@@ -179,14 +183,15 @@ def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumSt
     start_time = time.time()
     st.write('Searching ARIMA parameters for {}...'.format(player_name))
     try:
-        model = auto_arima(smaller_test_player_train, start_p=1, start_q=1,
-                            max_p=5, max_q=5, max_d=2, m=82,
-                            start_P=0, start_Q=0, seasonal=True,
-                            error_action='ignore',  
-                            suppress_warnings=True, 
-                            stepwise=True)
+        model = pm.auto_arima(player_train_df, start_p=1, start_q=1,
+                                max_p=5, max_q=5, max_d=3, m=3,
+                                start_P=0, start_Q=0, seasonal=True,
+                                information_criterion='aicc',
+                                error_action='ignore',  
+                                suppress_warnings=True, 
+                                stepwise=True)
         st.write('Model built, fitting...')
-        stepwise_model.fit(smaller_test_player_train)
+        model.fit(player_train_df)
     except ValueError:
         st.write("{} doesn't have enough data!".format(player_name))
         return None
@@ -196,17 +201,34 @@ def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumSt
     except:
         st.write('Unhandled error for {}'.format(player_name))
         return None
-    predictions, intervals = model.predict(n_periods=smaller_test_player_test.shape[0], return_conf_int=True)
-    intervals = pd.DataFrame(intervals)
+    predictions, intervals = model.predict(n_periods=player_test_df.shape[0], return_conf_int=True)
     end_time = time.time()
-    st.write("{0}'s Auto-ARIMA took {1:.3f} seconds.".format(player_name, end_time-start_time))
+    low_intervals = []
+    high_intervals = []
+    for low, high in intervals:
+        low_intervals.append(low)
+        high_intervals.append(high)
     prediction_residuals = calculate_test_residuals(predictions, player_test_df)
     if summary: st.text(model.summary())
     train_residuals = pd.DataFrame(model.resid())
     trainMfe, trainMae, trainRmse, trainResiduals = calculate_errors(train_residuals)
     testMfe, testMae, testRmse, testResiduals = calculate_errors(prediction_residuals)
+    model_params = model.get_params()
+    p, d, q = model_params['order']
+    try:
+        P, D, Q, s = model_params['seasonal_order']
+    except TypeError:
+        st.write('Search failed to find valid options.')
+        return None
+    st.write("{0}'s Auto-ARIMA({1},{2},{3})({4},{5},{6},{7}) took {8:.3f} seconds.".format(player_name, p, d, q, P, D, Q, s, end_time-start_time))
     results_df = pd.DataFrame({'forecastStart':forecast_from,
                                 'aic':model.aic(),
+                                'p':p,
+                                'd':d,
+                                'q':q,
+                                'P':P,
+                                'D':D,
+                                'Q':Q,
                                 'trainMfe':trainMfe, # TODO: store more info (eg. confidence intervals, )
                                 'trainMae':trainMae,
                                 'trainRmse':trainRmse,
@@ -215,19 +237,18 @@ def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumSt
                                 'testMae':testMae,
                                 'testRmse':testRmse,
                                 'testResiduals':[prediction_residuals], 
-                                'intervalLow':intervals.iloc[:, 0],
-                                'intervalHigh':intervals.iloc[:, 1]}, index=[player_name])
+                                'intervalLow':[low_intervals],
+                                'intervalHigh':[high_intervals]}, index=[player_name])
     return results_df
 
-arima_response = player_arima(data)
-st.dataframe(arima_response)
-
-foo = bar
+# arima_response = player_arima(data).values.tolist()
+# st.dataframe(arima_response)
 
 # @st.cache
 def all_player_arima(data, roster):
     results = pd.DataFrame()
     for index, player in roster.iterrows():
+        print('Player {}'.format(index))
         player_name = player['name']
         player_results = player_arima(data, player_name=player_name)
         if type(player_results) is type(None):
@@ -235,7 +256,9 @@ def all_player_arima(data, roster):
             continue
         st.dataframe(player_results)
         results = pd.concat([results, player_results])
-        results.to_pickle('./data/temp/arima_results.p')
+        results.to_pickle('./data/temp/arima_results_TEMP.p')
     return results
 
-all_arima_results = all_player_arima(data, full_roster)
+print('Running Auto-ARIMAs...')
+all_arima_results = all_player_arima(data, roster=full_roster)
+print('Done!')
