@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 import matplotlib.pyplot as plt 
 import streamlit as st
@@ -6,6 +7,8 @@ from pandas.plotting import autocorrelation_plot
 from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.seasonal import seasonal_decompose
 from pyramid.arima import auto_arima
+from scipy.stats import boxcox
+from scipy.special import inv_boxcox
 import NHL_API as nhl
 
 @st.cache
@@ -38,26 +41,16 @@ small_test_player = test_player.loc[:, ['date', 'cumStatpoints']]
 smaller_test_player = small_test_player.set_index('date', drop=True)
 st.dataframe(smaller_test_player)
 
-autocorrelation_plot(smaller_test_player)
-fig = plt.gcf()
-st.pyplot(fig)
+# autocorrelation_plot(smaller_test_player)
+# fig = plt.gcf()
+# st.pyplot(fig)
 
 seasons = nhl.get_seasons()
 st.dataframe(seasons)
 
-model = ARIMA(smaller_test_player, order=(3,1,1))
-model_fit = model.fit(disp=0)
-st.text(model_fit.summary())
-
-residuals = pd.DataFrame(model_fit.resid)
-residuals.plot()
-fig = plt.gcf()
-st.pyplot(fig)
-
-residuals.plot(kind='kde')
-fig = plt.gcf()
-st.pyplot(fig)
-st.write(residuals.describe())
+# model = ARIMA(smaller_test_player, order=(3,1,1))
+# model_fit = model.fit(disp=0)
+# st.text(model_fit.summary())
 
 @st.cache
 def calculate_errors(residuals):
@@ -92,127 +85,144 @@ def calculate_test_residuals(prediction_array, test_data):
     residuals = pd.DataFrame(residuals)
     return residuals
 
-stepwise_model = auto_arima(smaller_test_player, start_p=1, start_q=1,
-                           max_p=3, max_q=3, m=12,
-                           start_P=0, seasonal=False,
-                           d=1, D=1, trace=True,
-                           error_action='ignore',  
-                           suppress_warnings=True, 
-                           stepwise=True)
-
 smaller_test_player_train = smaller_test_player[:'2018-10-03']
 smaller_test_player_test = smaller_test_player['2018-10-03':]
 
-stepwise_model.fit(smaller_test_player_train)
-predictions = stepwise_model.predict(n_periods=smaller_test_player_test.shape[0])
+# @st.cache
+def test_arima(y=smaller_test_player_train, y_test=smaller_test_player_test, transform='boxcox'):
+    if transform == 'log':
+        smaller_test_player_train.loc[:, 'logValues'] = np.log(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
+        smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
+    elif transform == 'boxcox':
+        smaller_test_player_train.loc[:, 'transformedValues'], lmbda = boxcox(smaller_test_player_train['cumStatpoints']) # TODO: make this stat agnostic
+        smaller_test_player_train.drop('cumStatpoints', axis=1, inplace=True)
+        st.write('Transformed (lambda = {}) DF:'.format(lmbda))
+        st.dataframe(smaller_test_player_train)
+    start_time = time.time()
+    stepwise_model = auto_arima(smaller_test_player_train, start_p=1, start_q=1,
+                            max_p=5, max_q=5, max_d=2, m=82,
+                            start_P=0, start_Q=0, seasonal=True,
+                            information_criterion='aicc',
+                            error_action='ignore',  
+                            suppress_warnings=True, 
+                            stepwise=True)
+    st.write('Model build done. Fitting...')
+    stepwise_model.fit(smaller_test_player_train)
+    predictions, intervals = stepwise_model.predict(n_periods=smaller_test_player_test.shape[0], return_conf_int=True)
+    intervals = pd.DataFrame(intervals)
+    if transform == 'log':
+        predictions = np.exp(predictions)
+        intervals = np.exp(intervals)
+    elif transform == 'boxcox':
+        predictions = inv_boxcox(predictions, lmbda)
+        intervals = inv_boxcox(intervals, lmbda)
+    st.dataframe(predictions)
+    end_time = time.time() 
+    st.write('Auto-ARIMA took {:.3f} seconds to complete.'.format(end_time-start_time))
+    return stepwise_model, predictions, intervals
 
+stepwise_model, predictions, intervals = test_arima()
 test_residuals = calculate_test_residuals(predictions, smaller_test_player_test)
 testMfe, testMae, testRmse, testResiduals = calculate_errors(test_residuals)
 
+st.text(stepwise_model.summary())
+
+train_residuals = pd.DataFrame(stepwise_model.resid())
+
+train_residuals.plot()
+fig = plt.gcf()
+st.pyplot(fig)
+
+train_residuals.plot(kind='kde')
+fig = plt.gcf()
+st.pyplot(fig)
+
+test_residuals.plot()
+fig = plt.gcf()
+st.pyplot(fig)
+
+test_residuals.plot(kind='kde')
+fig = plt.gcf()
+st.pyplot(fig)
+
+model_params = stepwise_model.get_params()
+p, d, q = model_params['order']
+P, D, Q, s = model_params['seasonal_order']
+st.write('Model p, d, and q, respectively: {0}, {1}, {2}'.format(p, d, q))
+st.write('Model P, D, Q, and s respectively: {0}, {1}, {2}, {3}'.format(P, D, Q, s))
+model_coeffs = stepwise_model.params()
+model_aic = stepwise_model.aic()
+model_score = stepwise_model.oob()
+
 # @st.cache
-def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumStatpoints' , player_id=None, roster=None, p=3, d=1, q=1, summary=False):
+def player_arima(data, player_name='Leon Draisaitl',index='date' ,feature='cumStatpoints' , forecast_from='2018-10-03', player_id=None, roster=None, p=3, d=1, q=1, summary=False):
     if player_id and type(roster) != None: # TODO: add logic for if the player ID is given but not a roster (use function in package)
         player_name = roster[roster['Unnamed: 0'] == player_id]
     player_df = data[data['name'] == player_name]
-    player_train_df = player_df[player_df['date'] < '2018-10-03']
-    player_test_df = player_df[player_df['date'] >= '2018-10-03']
+    player_train_df = player_df[player_df['date'] < forecast_from]
+    player_test_df = player_df[player_df['date'] >= forecast_from]
+    for df in [player_train_df, player_test_df]:
+        df = df.loc[:, [index, feature]]
+        df = df.set_index(index, drop=True)
     player_train_df = player_train_df.loc[:, [index, feature]]
-    player_train_df = player_train_df.set_index(index, drop=True)
-    player_test_df = player_test_df.loc[:, [index, feature]]
-    player_test_df = player_test_df.set_index(index, drop=True)
-    # st.write('{} train'.format(player_name))
-    # st.dataframe(player_train_df)
-    # st.write('{} test'.format(player_name))
-    # st.dataframe(player_test_df)
-    player_train_df = player_train_df[:'2018-10-03']
+    # player_train_df = player_train_df.set_index(index, drop=True)
+    # player_test_df = player_test_df.loc[:, [index, feature]]
+    # player_test_df = player_test_df.set_index(index, drop=True)
+    # player_train_df = player_train_df[:'2018-10-03']
     if player_train_df.shape[0] == 0:
         st.write('{} is a rookie!'.format(player_name))
         return None
-    player_test_df = player_test_df['2018-10-03':]
+    # player_test_df = player_test_df['2018-10-03':]
     if player_test_df.shape[0] == 0:
         st.write('{} retired!'.format(player_name))
         return None
-    # try:
-    #     model = ARIMA(player_df, order=(p,d,q))
-    #     model_fit = model.fit(disp=0)
-    # except ValueError:
-    #     return None
+    start_time = time.time()
+    st.write('Searching ARIMA parameters for {}...'.format(player_name))
     try:
-        try:
-            model = auto_arima(player_test_df, start_p=1, start_q=1,
-                                max_p=3, max_q=3, m=7,
-                                start_P=0, seasonal=True,
-                                d=1, D=1, trace=True,
-                                error_action='ignore',  
-                                suppress_warnings=True, 
-                                stepwise=True)
-            aic = model.aic()
-            model.fit(player_train_df)
-        except IndexError:
-            st.write('Index error for {}'.format(player_name))
-            return None
-        except:
-            st.write('Unhandled error for {}'.format(player_name))
-            return None
+        model = auto_arima(smaller_test_player_train, start_p=1, start_q=1,
+                            max_p=5, max_q=5, max_d=2, m=82,
+                            start_P=0, start_Q=0, seasonal=True,
+                            error_action='ignore',  
+                            suppress_warnings=True, 
+                            stepwise=True)
+        st.write('Model built, fitting...')
+        stepwise_model.fit(smaller_test_player_train)
     except ValueError:
         st.write("{} doesn't have enough data!".format(player_name))
         return None
-    predictions = model.predict(n_periods=player_test_df.shape[0])
+    except IndexError:
+        st.write('Index error for {}'.format(player_name))
+        return None
+    except:
+        st.write('Unhandled error for {}'.format(player_name))
+        return None
+    predictions, intervals = model.predict(n_periods=smaller_test_player_test.shape[0], return_conf_int=True)
+    intervals = pd.DataFrame(intervals)
+    end_time = time.time()
+    st.write("{0}'s Auto-ARIMA took {1:.3f} seconds.".format(player_name, end_time-start_time))
     prediction_residuals = calculate_test_residuals(predictions, player_test_df)
-    if summary: st.text(model_fit.summary())
+    if summary: st.text(model.summary())
     train_residuals = pd.DataFrame(model.resid())
     trainMfe, trainMae, trainRmse, trainResiduals = calculate_errors(train_residuals)
     testMfe, testMae, testRmse, testResiduals = calculate_errors(prediction_residuals)
-    # try:
-    #     ar_coeffs = model.arparams()
-    #     arCoeff1, arCoeff2, arCoeff3 = unpack_coeffs(*ar_coeffs) # TODO: handle multiple coefficients
-    # except AttributeError:
-    #     arCoeff1, arCoeff2, arCoeff3 = (None, None, None)
-    # try:
-    #     ma_coeffs = model.maparams()
-    #     maCoeff1, maCoeff2, maCoeff3 = unpack_coeffs(*ma_coeffs) # TODO: handle multiple coefficients
-    # except AttributeError:
-    #     maCoeff1, maCoeff2, maCoeff3 = (None, None, None)
-    # if q == 1:
-    #     maCoeff = model_fit.maparams.item()
-    #     results_df = pd.DataFrame({'trainMfe':mfe,
-    #                             'trainMae':mae,
-    #                             'trainRmse':rmse,
-    #                             'arCoeff1':arCoeff1,
-    #                             'arCoeff2':arCoeff2,
-    #                             'arCoeff3':arCoeff3,
-    #                             'maCoeff':maCoeff,
-    #                             'trainResiduals':[residuals]}, index=[player_name])
-    # elif q == 2:
-    #     maCoeffs = model_fit.maparams.tolist()
-    #     maCoeff1, maCoeff2 = unpack_coeffs(*maCoeffs)
-    #     results_df = pd.DataFrame({'trainMfe':mfe,
-    #                             'trainMae':mae,
-    #                             'trainRmse':rmse,
-    #                             'arCoeff1':arCoeff1,
-    #                             'arCoeff2':arCoeff2,
-    #                             'arCoeff3':arCoeff3,
-    #                             'maCoeff1':maCoeff1,
-    #                             'maCoeff2':maCoeff2,
-    #                             'trainResiduals':[residuals]}, index=[player_name])
-    results_df = pd.DataFrame({'trainMfe':trainMfe,
+    results_df = pd.DataFrame({'forecastStart':forecast_from,
+                                'aic':model.aic(),
+                                'trainMfe':trainMfe, # TODO: store more info (eg. confidence intervals, )
                                 'trainMae':trainMae,
                                 'trainRmse':trainRmse,
+                                'trainResiduals':[train_residuals],
                                 'testMfe':testMfe,
                                 'testMae':testMae,
                                 'testRmse':testRmse,
-                                # 'arCoeff1':arCoeff1,
-                                # 'arCoeff2':arCoeff2,
-                                # 'arCoeff3':arCoeff3,
-                                # 'maCoeff1':maCoeff1,
-                                # 'maCoeff2':maCoeff2,
-                                # 'maCoeff3':maCoeff3,
-                                'trainResiduals':[train_residuals],
-                                'testResiduals':[prediction_residuals]}, index=[player_name])
+                                'testResiduals':[prediction_residuals], 
+                                'intervalLow':intervals.iloc[:, 0],
+                                'intervalHigh':intervals.iloc[:, 1]}, index=[player_name])
     return results_df
 
 arima_response = player_arima(data)
 st.dataframe(arima_response)
+
+foo = bar
 
 # @st.cache
 def all_player_arima(data, roster):

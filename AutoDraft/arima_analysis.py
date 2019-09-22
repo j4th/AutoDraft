@@ -72,11 +72,11 @@ plot_hists(['testRmse', 'trainRmse'])
 test_player = st.text_input('Player to predict:', 'Nico Hischier')
 
 # @st.cache
-def calculate_predictions(data=data, results=results, player_name=test_player):
+def calculate_predictions(data=data, results=results, player_name=test_player, target='cumStatpoints'):
     test_results = results.loc[test_player, :]
     test_residuals = test_results.testResiduals
     train_residuals = test_results.trainResiduals
-    test_real = data[data['name'] == test_player].loc[:, ['date', 'cumStatpoints']]
+    test_real = data[data['name'] == test_player].loc[:, ['date', target]]
     # test_real.set_index(pd.to_datetime(test_real['date']), inplace=True)
 
     # st.dataframe(test_real)
@@ -99,15 +99,18 @@ def calculate_predictions(data=data, results=results, player_name=test_player):
     return full_frame, player_name
 
 # @st.cache
-def plot_actual_predictions_series(series_dataframe=calculate_predictions(player_name=test_player)[0],
-                            player_name=calculate_predictions(player_name=test_player)[1]):
+def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', results=results,
+                                    series_dataframe=calculate_predictions(player_name=test_player, target='cumStatpoints')[0],
+                                    player_name=calculate_predictions(player_name=test_player, target='cumStatpoints')[1]):
     dates = series_dataframe.index.values.astype(np.datetime64)
     start_date = dt.strptime('2018-10-03', '%Y-%m-%d')
-
-    real_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe['cumStatpoints']))
+    
+    real_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe[target]))
     pred_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe['predictions']))
 
-    player_line = figure(title='{0} (Train RMSE: {1:.3f}, Test RMSE: {2:.3f}'.format(test_player, results.loc[player_name, 'trainRmse'], results.loc[player_name, 'testRmse']),
+    player_line = figure(title='{0} (Train RMSE: {1:.3f}, Test RMSE: {2:.3f}'.format(test_player, 
+                                                                                        results.loc[player_name, 'train'+metric],
+                                                                                        results.loc[player_name, 'test'+metric]), # TODO: change to MASE
                             plot_height=300, plot_width=800, tools="xpan", toolbar_location=None,
                             x_axis_type="datetime", x_axis_location="below", x_range=(dates[0], dates[-1]),
                             background_fill_color="#efefef")
