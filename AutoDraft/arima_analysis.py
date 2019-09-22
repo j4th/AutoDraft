@@ -38,34 +38,53 @@ st.dataframe(results)
 st.write('Yeo-Johnsoned ARIMA results dataframe:')
 st.dataframe(results_yj)
 
-def get_hists(metric_list, range_metric, results=results):
+def get_hists(metric_list=['testRmse'], results=[results, results_yj], result_names=['Raw', 'Yeo-Johnson'], range_result=None, range_metric=None, edges_method='min'):
     hists = []
-    for metric in metric_list:
-        if metric == range_metric:
-            hist, edges = np.histogram(results[metric])
+    edges_list = []
+    for result, name in zip(results, result_names):
+        for metric in metric_list:
+            hist, edges = np.histogram(result[metric])
             hists.append(hist)
+            edges_list.append(edges)
+    edge_min = edges_list[0][-1]
+    edge_max = edges_list[0][-1] # I cheated here
+    edge_loc = None
+    for i, edges in enumerate(edges_list):
+        edge_range = edges[-1] - edges [0]
+        if edges_method == 'max':
+            if edge_range > edge_max: edge_loc = i
         else:
-            hist, _ = np.histogram(results[metric])
-            hists.append(hist)
+            if edge_range < edge_min: edge_loc = i
+    if not edge_loc: edge_loc = 0
+    edges = edges_list[edge_loc]
+    st.dataframe(edges)
     return hists, edges
 
-def plot_hists(metric_list, results=[results, results_yj]):
+def plot_hists(metric_list=['testRmse'], results=[results, results_yj], result_names=['Raw', 'Yeo-Johnson']):
     fig = figure(plot_height = 600, plot_width = 600, 
                     title = "Histogram of ARIMA RMSE's",
                     x_axis_label = 'RMSE', 
                     y_axis_label = '# of players')
 
-    metric_df = pd.concat([results[metric] for metric in metric_list], axis=1)
-    max_range = metric_df.max() - metric_df.min()
-    max_range_metric = max_range.idxmax()
+    results_df = pd.DataFrame()
+    for result, name in zip(results, result_names):
+        metrics_df = pd.DataFrame()
+        for metric in metric_list:
+            metric_df = result[metric]
+            metrics_df = pd.concat([metrics_df, metric_df], axis=1)
+        metrics_df.columns = [column + name for column in metrics_df.columns]
+        results_df = pd.concat([results_df, metrics_df], axis=1)
+        # result_df = pd.concat([result[metric] for metric in metric_list], axis=1) # TODO: I don't think multiple metrics will play nice here...
+    max_range = results_df.max() - results_df.min()
+    max_range_results = max_range.idxmax()
+    st.dataframe(max_range)
 
-
-    hists, edges = get_hists(metric_list, range_metric=max_range_metric)
+    hists, edges = get_hists(metric_list, results, result_names, edges_method='max') # TODO: add scaling of axes back in
     # TODO: handle colors/length mismatch
-    for metric, hist, color in zip(metric_list, hists, ['blue', 'red', 'green']):
+    for result_name, hist, color in zip(result_names, hists, ['blue', 'red', 'green']):
         fig.quad(bottom=0, top=hist, 
                         left=edges[:-1], right=edges[1:], 
-                        fill_color=color, line_color='black', legend=metric)
+                        fill_color=color, line_color='black', legend=result_name)
 
     fig.legend.location = 'top_right'
     fig.legend.click_policy = 'hide'
@@ -73,9 +92,9 @@ def plot_hists(metric_list, results=[results, results_yj]):
     st.bokeh_chart(fig)
     return fig
 
-plot_hists(['testRmse', 'trainRmse'])
+# plot_hists(['testRmse'])
 
-test_player = st.text_input('Player to predict:', 'Nico Hischier')
+test_player = st.text_input('Player to predict:', 'Nico Leon Draisaitl')
 
 # @st.cache
 def calculate_predictions(data=data, results=results, player_name=test_player, target='cumStatpoints'):
@@ -106,16 +125,23 @@ def calculate_predictions(data=data, results=results, player_name=test_player, t
 def return_intervals(results=results, player_name=test_player):
     lows = results.loc[test_player, 'intervalLow']
     highs = results.loc[test_player, 'intervalHigh']
-    intervals = pd.DataFrame({'low':lows, 'high':highs})
+    # st.write(type(lows))
+    # for data in [lows, highs]:
+    #     if type(data) == type(np.ndarray((1,1))): data = data.tolist() 
+    # st.write(type(lows))
+    try:
+        intervals = pd.DataFrame({'low':lows, 'high':highs})
+    except ValueError:
+        intervals = pd.DataFrame({'low':lows.tolist(), 'high':highs.tolist()})
     return intervals
 
-test_intervals = return_intervals()
+# test_intervals = return_intervals()
 
 # @st.cache
-def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', results=results, intervals=return_intervals(player_name=test_player),
+def plot_actual_predictions_series(results, target='cumStatpoints', metric='Rmse',
                                     series_dataframe=calculate_predictions(player_name=test_player, target='cumStatpoints')[0],
                                     player_name=calculate_predictions(player_name=test_player, target='cumStatpoints')[1]):
-    st.dataframe(series_dataframe)
+    intervals = return_intervals(results, player_name)
     dates = series_dataframe.index.values.astype(np.datetime64)
     start_date = dt.strptime('2018-10-03', '%Y-%m-%d')
 
@@ -125,9 +151,16 @@ def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', result
     interval_dates = np.hstack((interval_dates, interval_dates))
     interval_source = ColumnDataSource(data=dict(date=interval_dates, points=intervals))
 
-    player_line = figure(title='{0} (Train RMSE: {1:.3f}, Test RMSE: {2:.3f}'.format(test_player, 
-                                                                                        results.loc[player_name, 'train'+metric],
-                                                                                        results.loc[player_name, 'test'+metric]), # TODO: change to MASE
+    player_line = figure(title='{0}({1},{2},{3})({4},{5},{6},{7}) [Train RMSE: {8:.3f}, Test RMSE: {9:.3f}]'.format(test_player, 
+                                                                                                                    results.loc[player_name, 'p'],
+                                                                                                                    results.loc[player_name, 'd'],
+                                                                                                                    results.loc[player_name, 'q'],
+                                                                                                                    results.loc[player_name, 'P'],
+                                                                                                                    results.loc[player_name, 'D'],
+                                                                                                                    results.loc[player_name, 'Q'],
+                                                                                                                    3, # TODO: undo hardcoding once ARIMA results are regenerated
+                                                                                                                    results.loc[player_name, 'train'+metric],
+                                                                                                                    results.loc[player_name, 'test'+metric]), # TODO: change to MASE
                             plot_height=300, plot_width=800, tools="xpan", toolbar_location='above',
                             x_axis_type="datetime", x_axis_location="below", x_range=(dates[0], dates[-1]),
                             background_fill_color="#efefef")
@@ -140,7 +173,6 @@ def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', result
     player_line.line('date', 'points', source=pred_source, line_color='red', legend='predicted')
     # player_line.patch(x=dates[-intervals.shape[0]:], y=intervals, line_color='red', alpha=0.4)
 
-    st.dataframe(intervals)
     player_line.varea(x=interval_dates[:, 0], y1=intervals.loc[:, 'high'], y2=intervals.loc[:, 'low'], fill_alpha=0.4, color='red', legend='predicted')
     # interval_glyph = Patch(x='date', y='points', fill_color="red", fill_alpha=0.4)
     # player_line.add_glyph(interval_source, interval_glyph)
@@ -179,4 +211,8 @@ def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', result
     st.dataframe(series_dataframe)
     return chart
 
-plot_actual_predictions_series(player_name=test_player)
+transform = st.checkbox('Use transformed (YJ) data?')
+if not transform:
+    plot_actual_predictions_series(results, player_name=test_player)
+else:
+    plot_actual_predictions_series(results_yj, player_name=test_player)

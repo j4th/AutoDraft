@@ -176,11 +176,11 @@ def player_arima(data, player_name, index='date' ,feature='cumStatpoints' , fore
     model_params = model.get_params()
     p, d, q = model_params['order']
     try:
-        P, D, Q, s = model_params['seasonal_order']
+        P, D, Q, m = model_params['seasonal_order']
     except TypeError:
         st.write('Search failed to find valid options.')
         return None
-    st.write("{0}'s Auto-ARIMA({1},{2},{3})({4},{5},{6},{7}) took {8:.3f} seconds.".format(player_name, p, d, q, P, D, Q, s, end_time-start_time))
+    st.write("{0}'s Auto-ARIMA({1},{2},{3})({4},{5},{6},{7}) took {8:.3f} seconds.".format(player_name, p, d, q, P, D, Q, m, end_time-start_time))
     results_df = pd.DataFrame({'forecastStart':forecast_from,
                                 'aic':model.aic(),
                                 'p':p,
@@ -189,6 +189,7 @@ def player_arima(data, player_name, index='date' ,feature='cumStatpoints' , fore
                                 'P':P,
                                 'D':D,
                                 'Q':Q,
+                                'm':m,
                                 'trainMfe':trainMfe, # TODO: store more info (eg. confidence intervals, )
                                 'trainMae':trainMae,
                                 'trainRmse':trainRmse,
