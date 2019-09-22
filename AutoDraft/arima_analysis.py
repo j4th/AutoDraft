@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime as dt
 from bokeh.layouts import gridplot, column
-from bokeh.models import ColumnDataSource, RangeTool, Span
+from bokeh.models import ColumnDataSource, RangeTool, Span, HoverTool
+from bokeh.models.glyphs import Patch
 from bokeh.plotting import figure, show
 from pandas.plotting import autocorrelation_plot
 from statsmodels.tsa.arima_model import ARIMA
@@ -19,18 +20,23 @@ def load_csv(path='./data/full_dataset_4_seasons.csv'):
     return data
 
 # @st.cache
-def load_pickle(path='./data/arima_results_m82.p'):
+def load_pickle(path='./data/arima_results_m3.p'):
     data = pd.read_pickle(path)
+    data.loc[:,'name'] = data.index
+    data.drop_duplicates('name', inplace=True)
     return data
 
 data = load_csv()
 results = load_pickle()
+results_yj = load_pickle('./data/arima_results_m3_yj.p')
 
 st.text('Stats data shape: {0}\nARIMA results shape: {1}'.format(data.shape, results.shape))
 st.write('Stat dataframe head:')
 st.dataframe(data.head())
 st.write('ARIMA results dataframe:')
 st.dataframe(results)
+st.write('Yeo-Johnsoned ARIMA results dataframe:')
+st.dataframe(results_yj)
 
 def get_hists(metric_list, range_metric, results=results):
     hists = []
@@ -43,7 +49,7 @@ def get_hists(metric_list, range_metric, results=results):
             hists.append(hist)
     return hists, edges
 
-def plot_hists(metric_list, results=results):
+def plot_hists(metric_list, results=[results, results_yj]):
     fig = figure(plot_height = 600, plot_width = 600, 
                     title = "Histogram of ARIMA RMSE's",
                     x_axis_label = 'RMSE', 
@@ -56,7 +62,7 @@ def plot_hists(metric_list, results=results):
 
     hists, edges = get_hists(metric_list, range_metric=max_range_metric)
     # TODO: handle colors/length mismatch
-    for metric, hist, color in zip(metric_list, hists, ['blue', 'red']):
+    for metric, hist, color in zip(metric_list, hists, ['blue', 'red', 'green']):
         fig.quad(bottom=0, top=hist, 
                         left=edges[:-1], right=edges[1:], 
                         fill_color=color, line_color='black', legend=metric)
@@ -93,32 +99,56 @@ def calculate_predictions(data=data, results=results, player_name=test_player, t
     full_frame['date'] = pd.to_datetime(full_frame['date'])
     full_frame.drop_duplicates(subset='date', keep='first', inplace=True)
     full_frame.set_index('date', drop=False, inplace=True)
-
-    full_frame['predictions'] = full_frame.apply(lambda row: row.cumStatpoints + row.residuals, axis=1)
+    full_frame['predictions'] = full_frame.apply(lambda row: row.cumStatpoints - row.residuals, axis=1)
     # st.dataframe(full_frame)
     return full_frame, player_name
 
+def return_intervals(results=results, player_name=test_player):
+    lows = results.loc[test_player, 'intervalLow']
+    highs = results.loc[test_player, 'intervalHigh']
+    intervals = pd.DataFrame({'low':lows, 'high':highs})
+    return intervals
+
+test_intervals = return_intervals()
+
 # @st.cache
-def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', results=results,
+def plot_actual_predictions_series(target='cumStatpoints', metric='Rmse', results=results, intervals=return_intervals(player_name=test_player),
                                     series_dataframe=calculate_predictions(player_name=test_player, target='cumStatpoints')[0],
                                     player_name=calculate_predictions(player_name=test_player, target='cumStatpoints')[1]):
+    st.dataframe(series_dataframe)
     dates = series_dataframe.index.values.astype(np.datetime64)
     start_date = dt.strptime('2018-10-03', '%Y-%m-%d')
-    
+
     real_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe[target]))
     pred_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe['predictions']))
+    interval_dates = dates[-intervals.shape[0]:].reshape(-1,1)
+    interval_dates = np.hstack((interval_dates, interval_dates))
+    interval_source = ColumnDataSource(data=dict(date=interval_dates, points=intervals))
 
     player_line = figure(title='{0} (Train RMSE: {1:.3f}, Test RMSE: {2:.3f}'.format(test_player, 
                                                                                         results.loc[player_name, 'train'+metric],
                                                                                         results.loc[player_name, 'test'+metric]), # TODO: change to MASE
-                            plot_height=300, plot_width=800, tools="xpan", toolbar_location=None,
+                            plot_height=300, plot_width=800, tools="xpan", toolbar_location='above',
                             x_axis_type="datetime", x_axis_location="below", x_range=(dates[0], dates[-1]),
                             background_fill_color="#efefef")
 
-    player_line.line('date', 'points', source=real_source, line_color='blue', legend='actual')
+    hover_tool = HoverTool(tooltips=[("date", "@date"),
+                                    ("points", "@points")],
+                            mode='vline')
+
+    player_line.circle('date', 'points', source=real_source, line_color='blue', legend='actual')
     player_line.line('date', 'points', source=pred_source, line_color='red', legend='predicted')
+    # player_line.patch(x=dates[-intervals.shape[0]:], y=intervals, line_color='red', alpha=0.4)
+
+    st.dataframe(intervals)
+    player_line.varea(x=interval_dates[:, 0], y1=intervals.loc[:, 'high'], y2=intervals.loc[:, 'low'], fill_alpha=0.4, color='red', legend='predicted')
+    # interval_glyph = Patch(x='date', y='points', fill_color="red", fill_alpha=0.4)
+    # player_line.add_glyph(interval_source, interval_glyph)
+
     player_line.legend.location = 'top_left'
     player_line.legend.click_policy = 'hide'
+    player_line.add_tools(hover_tool)
+    player_line.toolbar.active_multi = hover_tool
     # player_line.yaxis.axis_label('Cumulative Points')
 
     test_start = Span(location=start_date,
