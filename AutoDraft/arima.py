@@ -206,10 +206,11 @@ def player_arima(data, player_name, index='date' ,feature='cumStatpoints' , fore
 # st.dataframe(arima_response)
 
 # @st.cache
-def all_player_arima(data, roster, transform='none'):
+def all_player_arima(data, roster, transform='none', print_status=False):
+    if print_status: print('Running Auto-ARIMAs...')
     results = pd.DataFrame()
     for index, player in roster.iterrows():
-        print('Player {}'.format(index))
+        if print_status: print('Player {}'.format(index))
         player_name = player['name']
         player_results = player_arima(data, player_name=player_name, transform=transform)
         if type(player_results) is type(None):
@@ -218,8 +219,7 @@ def all_player_arima(data, roster, transform='none'):
         st.dataframe(player_results)
         results = pd.concat([results, player_results])
         results.to_pickle('./data/temp/arima_results_TEMP.p')
+    if print_status: print('Done!')
     return results
 
-print('Running Auto-ARIMAs...')
-all_arima_results = all_player_arima(data, roster=full_roster, transform='yj')
-print('Done!')
+all_arima_results = nhl.all_player_arima(data, roster=full_roster, transform='yj', print_status=False)
