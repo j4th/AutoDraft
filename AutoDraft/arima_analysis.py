@@ -94,7 +94,7 @@ def plot_hists(metric_list=['testRmse'], results=[results, results_yj], result_n
 
 # plot_hists(['testRmse'])
 
-test_player = st.text_input('Player to predict:', 'Nico Leon Draisaitl')
+test_player = st.text_input('Player to predict:', 'Leon Draisaitl')
 
 # @st.cache
 def calculate_predictions(data=data, results=results, player_name=test_player, target='cumStatpoints'):
@@ -213,6 +213,6 @@ def plot_actual_predictions_series(results, target='cumStatpoints', metric='Rmse
 
 transform = st.checkbox('Use transformed (YJ) data?')
 if not transform:
-    plot_actual_predictions_series(results, player_name=test_player)
+    nhl.plot_actual_predictions_series(data, results, player_name=test_player)
 else:
-    plot_actual_predictions_series(results_yj, player_name=test_player)
+    nhl.plot_actual_predictions_series(data, results_yj, player_name=test_player)
