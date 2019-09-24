@@ -1,3 +1,6 @@
+"""
+Incomplete script for retrieving and exploring data from sportsradar using VSCode's IPython implementation
+"""
 #%%[markdown]
 # Let's look at what sort of data we can pull for the Minor leagues
 

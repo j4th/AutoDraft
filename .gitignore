@@ -3,6 +3,7 @@ keys/
 AutoDraft/.streamlit
 .streamlit
 data/temp/
+AutoDraft/.pylintrc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
