@@ -1,4 +1,11 @@
 # To install these Python dependencies, please type:
 # pip install -r requirements.txt
 
-streamlit
+pmdarima==1.3.0
+matplotlib==3.1.1
+bokeh==1.3.4
+requests==2.22.0
+pandas==0.25.1
+numpy==1.16.5
+streamlit==0.45.0
+scikit_learn==0.21.3
