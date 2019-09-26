@@ -39,13 +39,24 @@ def return_intervals(results, player_name='Leon Draisaitl'):
 
 def plot_actual_predictions_series(data,
                                    results,
+                                   model='arima',
                                    target='cumStatpoints',
                                    metric='Rmse',
                                    player_name='Leon Draisaitl'):
     """ plots the real and predicted time series along with confidence intervals for a player"""
-    series_dataframe = calculate_predictions(data, results, player_name=player_name, target=target)
-    intervals = return_intervals(results, player_name)
-    dates = series_dataframe.index.values.astype(np.datetime64)
+    if results is None:
+        model = 'deepar'
+    if model == 'arima':
+        series_dataframe = calculate_predictions(data, results, player_name=player_name, target=target)
+        intervals = return_intervals(results, player_name)
+        dates = series_dataframe.index.values.astype(np.datetime64)
+    elif model == 'deepar':
+        player_df = data.loc[data.loc[:, 'name'] == player_name]
+        series_dataframe = player_df.loc[:, [target, 'predictions']]
+        series_dataframe = series_dataframe.sort_index()
+        intervals = player_df.loc[:, ['high', 'low']].dropna()
+        intervals = intervals.sort_index()
+        dates = series_dataframe.index.values.astype(np.datetime64)
     start_date = dt.strptime('2018-10-03', '%Y-%m-%d')
 
     real_source = ColumnDataSource(data=dict(date=dates, points=series_dataframe[target]))
@@ -53,28 +64,40 @@ def plot_actual_predictions_series(data,
     interval_dates = dates[-intervals.shape[0]:].reshape(-1, 1)
     interval_dates = np.hstack((interval_dates, interval_dates))
 
-    player_line = figure(title=('{0}({1},{2},{3})({4},{5},{6},{7})'
-                                '[Train RMSE: {8:.3f}, Test RMSE: {9:.3f}]') \
-                                .format(player_name,
-                                        results.loc[player_name, 'p'],
-                                        results.loc[player_name, 'd'],
-                                        results.loc[player_name, 'q'],
-                                        results.loc[player_name, 'P'],
-                                        results.loc[player_name, 'D'],
-                                        results.loc[player_name, 'Q'],
-                                        3, # TODO: undo hardcoding
-                                        results.loc[player_name, 'train'+metric],
-                                        results.loc[player_name, 'test'+metric],
-                                        ), # TODO: change to MASE
-                         plot_height=300,
-                         plot_width=800,
-                         tools="xpan",
-                         toolbar_location='above',
-                         x_axis_type="datetime",
-                         x_axis_location="below",
-                         x_range=(dates[0], dates[-1]),
-                         background_fill_color="#efefef"
-                         )
+    if model =='arima':
+        player_line = figure(title=('{0}({1},{2},{3})({4},{5},{6},{7})'
+                                    '[Train RMSE: {8:.3f}, Test RMSE: {9:.3f}]') \
+                                    .format(player_name,
+                                            results.loc[player_name, 'p'],
+                                            results.loc[player_name, 'd'],
+                                            results.loc[player_name, 'q'],
+                                            results.loc[player_name, 'P'],
+                                            results.loc[player_name, 'D'],
+                                            results.loc[player_name, 'Q'],
+                                            3, # TODO: undo hardcoding
+                                            results.loc[player_name, 'train'+metric],
+                                            results.loc[player_name, 'test'+metric],
+                                            ), # TODO: change to MASE
+                            plot_height=300,
+                            plot_width=800,
+                            tools="xpan",
+                            toolbar_location='above',
+                            x_axis_type="datetime",
+                            x_axis_location="below",
+                            x_range=(dates[0], dates[-1]),
+                            background_fill_color="#efefef"
+                            )
+    elif model == 'deepar':
+         player_line = figure(title=('{0}'.format(player_name)), # TODO: add error
+                            plot_height=300,
+                            plot_width=800,
+                            tools="xpan",
+                            toolbar_location='above',
+                            x_axis_type="datetime",
+                            x_axis_location="below",
+                            x_range=(dates[0], dates[-1]),
+                            background_fill_color="#efefef"
+                            )
 
     hover_tool = HoverTool(tooltips=[("date", "@date"),
                                      ("points", "@points")
@@ -82,8 +105,8 @@ def plot_actual_predictions_series(data,
                            mode='vline'
                            )
 
-    player_line.circle('date', 'points', source=real_source, line_color='blue', legend='actual')
-    player_line.line('date', 'points', source=pred_source, line_color='red', legend='predicted')
+    player_line.line('date', 'points', source=real_source, line_color='blue', legend='actual')
+    player_line.circle('date', 'points', source=pred_source, line_color='red', fill_color='red', legend='predicted')
 
     player_line.varea(x=interval_dates[:, 0],
                       y1=intervals.loc[:, 'high'],
