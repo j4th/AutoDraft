@@ -8,12 +8,12 @@ import streamlit as st
 import autodraft.arima as ar
 
 @st.cache
-def load_csv(path='./data/full_dataset_4_seasons.csv'):
+def load_csv(path='../data/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
 # @st.cache
-def load_pickle(path='./data/temp/arima_results.p'):
+def load_pickle(path='../data/temp/arima_results.p'):
     data = pd.read_pickle(path)
     return data
 
@@ -23,7 +23,7 @@ def main():
 
     data = copy.deepcopy(load_csv())
     data['date'] = pd.to_datetime(data['date'])
-    full_roster = load_csv('./data/full_roster_4_seasons.csv')
+    full_roster = load_csv('../data/full_roster_4_seasons.csv')
     st.write('Number of players captured: {}'.format(full_roster.shape[0]))
     st.dataframe(full_roster)
     test_player = data[data['name'] == 'Leon Draisaitl']

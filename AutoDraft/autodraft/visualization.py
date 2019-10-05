@@ -155,6 +155,9 @@ def calculate_par(player, joe):
     # st.dataframe(joe)
     return
 
+def assemble_diagnoses(data, errors):
+    return
+
 def return_intervals(results, player_name='Leon Draisaitl'):
     """ return the prediction intervals from a results dataframe"""
     lows = results.loc[player_name, 'intervalLow']
@@ -327,7 +330,7 @@ def plot_actual_predictions_series(data,
 
     if model_errors is not None:
         player_line.line('date', 'points', source=real_source, line_color='blue', legend='actual')
-        player_line.line('date', 'points', source=compare_source, line_color='green', legend='joe')
+        player_line.line('date', 'points', source=compare_source, line_color='green', legend='average')
         player_line.circle('date', 'points', source=pred_source, line_color='red', fill_color='red', legend='predicted')
         player_line.varea(x=interval_dates[:, 0],
                 y1=intervals.loc[:, 'high'],
@@ -346,7 +349,7 @@ def plot_actual_predictions_series(data,
 
 
 
-    player_line.legend.location = 'top_left'
+    player_line.legend.location = 'bottom_right'
     player_line.legend.click_policy = 'hide'
     # player_line.add_tools(hover_tool)
     # player_line.toolbar.active_multi = hover_tool
@@ -410,11 +413,12 @@ def plot_actual_predictions_series(data,
     # st.dataframe(series_dataframe)
     return chart
 
-def ridge(category, data, scale=5):
+def ridge(category, data, scale=3):
     return list(zip([category]*len(data), scale*data))
 
 def ridge_plots(model_df):
     models = list(model_df.keys())
+    models.reverse()
     for i, model in enumerate(models):
         if 'name' in model:
             models.pop(i)
@@ -438,7 +442,7 @@ def ridge_plots(model_df):
     p.outline_line_color = None
     p.background_fill_color = "#efefef"
 
-    p.xaxis.ticker = FixedTicker(ticks=list(range(int(model_df.min().min()), int(model_df.max().max()), 10)))
+    p.xaxis.ticker = FixedTicker(ticks=list(range(int(model_df.min().min()), 5, 1)))
     # p.xaxis.formatter = PrintfTickFormatter(format="%d%%")
 
     p.ygrid.grid_line_color = None

@@ -1,7 +1,7 @@
 """
 This script is for analysing the outputs from the implementation of DeepAR in GluonTS
 """
-import os
+import os, time
 from pathlib import Path
 import streamlit as st
 import pandas as pd
@@ -21,7 +21,7 @@ def load_model(file_path):
     return model
 
 @st.cache
-def get_data(path='data/full_dataset_4_seasons.csv'):
+def get_data(path='../data/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -31,18 +31,18 @@ def get_data(path='data/full_dataset_4_seasons.csv'):
 #     return data
 
 @st.cache
-def load_predictions(path='/home/ubuntu/AutoDraft/data/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
+def load_predictions(path='../data/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
     data = pd.read_csv(path, index_col=2)
     model_name = path.split('/')[-1].split('.')[0]
     return data, model_name
 
 @st.cache
 def load_joe():
-    joe = pd.read_csv('/home/ubuntu/AutoDraft/data/joe_schmo_4_seasons.csv')
+    joe = pd.read_csv('../data/joe_schmo_4_seasons.csv')
     return joe
 
 @st.cache
-def get_roster(path='/home/ubuntu/AutoDraft/data/full_roster_4_seasons.csv'):
+def get_roster(path='../data/full_roster_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -141,64 +141,75 @@ def get_model_error_df(predictions):
     return model_error_df
 
 def main():
-    # st.write('Loading model...')
-    # model_path = "/home/ubuntu/AutoDraft/data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3"
-    # model = load_model(model_path)
-    # st.write(type(model))
-    # st.write('Done!')
+    st.write('Loading model...')
+    model_path = "../data/models/deepar_unit_s_ne300_lr1e-3_bs64_nl3_cl3"
+    model = load_model(model_path)
+    st.write(type(model))
+    st.write('Done!')
 
-    # st.write('Loading data...')
-    # data_ts = get_data()
-    # roster = get_roster()
-    # st.write('Done!')
-    # train_data, test_data, targets, targets_meta, stat_cat_features, dyn_cat_features, dyn_real_features, dyn_real_features_meta = process_data(data_ts, roster)
-    # data_meta = glu.generate_metadata(train_data, test_data, index='gameNumber')
+    st.write('Loading data...')
+    data_ts = get_data()
+    roster = get_roster()
+    st.write('Done!')
+    train_data, test_data, targets, targets_meta, stat_cat_features, dyn_cat_features, dyn_real_features, dyn_real_features_meta = process_data(data_ts, roster)
+    data_meta = glu.generate_metadata(train_data, test_data, index='gameNumber')
 
-    # # st.dataframe(train_data.head())
+    # st.dataframe(train_data.head())
 
-    # # prediction_lengths = [test_data.loc[test_data.loc[:, 'name'] == name].shape[0]
-    # #                       for name in test_data.loc[:, 'name'].unique()]
+    # prediction_lengths = [test_data.loc[test_data.loc[:, 'name'] == name].shape[0]
+    #                       for name in test_data.loc[:, 'name'].unique()]
 
     # input_list = [{FieldName.TARGET: target[:-prediction_length],
-    #                          FieldName.START: start,
-    #                          FieldName.FEAT_STATIC_CAT: stat_cat,
-    #                          FieldName.FEAT_DYNAMIC_CAT: dyn_cat,
-    #                          FieldName.FEAT_DYNAMIC_REAL: dyn_real}
-    #                          for target, start, prediction_length, stat_cat, dyn_cat, dyn_real in zip(targets,
-    #                                                                                                     data_meta['start'],
-    #                                                                                                     data_meta['prediction_length'],
-    #                                                                                                     stat_cat_features,
-    #                                                                                                     dyn_cat_features,
-    #                                                                                                     dyn_real_features
-    #                                                                                                     )]
+    #                 FieldName.START: start}
+    #                 for target, start, prediction_length in zip(targets,
+    #                                                             data_meta['start'],
+    #                                                             data_meta['prediction_length']
+    #                                                             )]    
 
-    # st.write(len(input_list[0]['target']))
-    # st.write(np.array(input_list[0]['target']).reshape(1, -1))
-    # st.write(len(input_list[0]['feat_static_cat']))
-    # st.write(np.array(input_list[0]['feat_static_cat']).reshape(1, -1))
-    # st.write(input_list[0]['feat_dynamic_cat'].shape)
-    # st.write(input_list[0]['feat_dynamic_cat'])
-    # st.write(input_list[0]['feat_dynamic_real'].shape)
-    # st.write(input_list[0]['feat_dynamic_real'])
+    input_list = [{FieldName.TARGET: target[:-prediction_length],
+                             FieldName.START: start,
+                             FieldName.FEAT_STATIC_CAT: stat_cat,
+                             FieldName.FEAT_DYNAMIC_CAT: dyn_cat,
+                             FieldName.FEAT_DYNAMIC_REAL: dyn_real}
+                             for target, start, prediction_length, stat_cat, dyn_cat, dyn_real in zip(targets,
+                                                                                                        data_meta['start'],
+                                                                                                        data_meta['prediction_length'],
+                                                                                                        stat_cat_features,
+                                                                                                        dyn_cat_features,
+                                                                                                        dyn_real_features
+                                                                                                        )]
 
-    # train_ds = ListDataset(input_list,
-    #                          freq=data_meta['freq']
-    #                       )
+    st.write(len(input_list))
+    st.write(len(input_list[0]['target']))
+    st.write(np.array(input_list[0]['target']).reshape(1, -1))
+    st.write(len(input_list[0]['feat_static_cat']))
+    st.write(np.array(input_list[0]['feat_static_cat']).reshape(1, -1))
+    st.write(input_list[0]['feat_dynamic_cat'].shape)
+    st.write(input_list[0]['feat_dynamic_cat'])
+    st.write(input_list[0]['feat_dynamic_real'].shape)
+    st.write(input_list[0]['feat_dynamic_real'])
 
-    # st.write('Predicting...')
-    # predictions = run_prediction(model, train_ds)
-    # st.write('Done!')
-    # st.dataframe(predictions)
-    # # prediction = process_prediction(predictions[0])
-    # # st.dataframe(prediction)
-    # # print(prediction.head())
+    train_ds = ListDataset(input_list,
+                             freq=data_meta['freq']
+                          )
 
-    # # future = generate_future(predictions, train_data, scaled='unit', scaling_loc=model_path+'/targets_meta.p')
-    # # future.to_csv('/home/ubuntu/AutoDraft/data/deepar_20192020_results_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
+    st.write('Predicting...')
+    start_time = time.time()
+    predictions = run_prediction(model, train_ds)
+    end_time = time.time()
+    st.write('Done!')
+    st.write(end_time - start_time)
+    st.dataframe(predictions)
+    # prediction = process_prediction(predictions[0])
+    # st.dataframe(prediction)
+    # print(prediction.head())
 
-    # predictions = generate_prediction_df(predictions, train_data, test_data, scaled='unit', scaling_loc=model_path+'/targets_meta.p')
-    # st.dataframe(predictions.head())
-    # print(predictions.head())
+    # future = generate_future(predictions, train_data, scaled='unit', scaling_loc=model_path+'/targets_meta.p')
+    # future.to_csv('/home/ubuntu/AutoDraft/data/deepar_20192020_results_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
+
+    predictions = generate_prediction_df(predictions, train_data, test_data, scaled='unit', scaling_loc=model_path+'/targets_meta.p')
+    st.dataframe(predictions.head())
+    print(predictions.head())
 
     # # save = st.checkbox('Save the predictions?')
     # # while not save:
@@ -211,8 +222,8 @@ def main():
     # # predictions.to_feather('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.feather')
 
     joe = load_joe()
-    st.write('Loading predictions...')
-    predictions, model_name = load_predictions('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv')
+    # st.write('Loading predictions...')
+    # predictions, model_name = load_predictions('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv')
     # predictions = pd.read_feather('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.feather')
     st.dataframe(predictions.head())
     st.write('Done!')
