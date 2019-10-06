@@ -16,12 +16,12 @@ from sklearn import preprocessing
 from pathlib import Path
 
 @st.cache
-def get_data(path='data/full_dataset_4_seasons.csv'):
+def get_data(path='../data/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
 @st.cache
-def get_roster(path='/home/ubuntu/AutoDraft/data/full_roster_4_seasons.csv'):
+def get_roster(path='../data/full_roster_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -254,23 +254,27 @@ def run_model(data_train,
               scaling=False,
               context_length=3,
               num_layers=3,
-              save_path="data/models/"):
+              embedding_dimension=16,
+              context='cpu',
+              save_path="../data/models/"):
     estimator = DeepAREstimator(freq=data_meta['freq'],
                                 prediction_length=82,
                                 scaling=scaling,
                                 context_length=context_length,
                                 num_layers=num_layers,
+                                embedding_dimension=embedding_dimension,
                                 trainer=Trainer(batch_size=batch_size,
                                                 epochs=num_epochs,
                                                 learning_rate=lr,
-                                                ctx='cpu',
+                                                ctx=context,
                                                 hybridize=False))
     predictor = estimator.train(data_train)
     predictor.serialize(Path(save_path))
     return predictor
 
 def main():
-    data_ts = get_data('data/full_dataset_4_seasons.csv')
+    ctx = mx.gpu()
+    data_ts = get_data('../data/full_dataset_4_seasons.csv')
     roster = get_roster()
     train_data, test_data, targets, targets_meta, stat_cat_features, dyn_cat_features, dyn_real_features, dyn_real_features_meta = prep_df(data_ts,
                                                                                                                                             roster,
@@ -352,7 +356,7 @@ def main():
     # while not train:
     #     pass
 
-    folder_path = '/home/ubuntu/AutoDraft/data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3'
+    folder_path = '/home/ubuntu/AutoDraft/data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3_ed16'
     if not os.path.isdir(folder_path):
         os.mkdir(folder_path)        
 
@@ -364,7 +368,9 @@ def main():
                           lr=1e-3,
                           batch_size=64,
                           num_layers=3,
-                          context_length=82,
+                          context_length=3,
+                          embedding_dimension=16,
+                          context=ctx,
                           save_path=folder_path)
 
 
