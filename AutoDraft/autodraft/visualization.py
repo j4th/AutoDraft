@@ -61,9 +61,9 @@ def calculate_residuals(predictions, start_date='2018-10-03', end_date=None):
                               'residuals':residuals})
     return residuals
 
-def calculate_error_df(predictions, start_date='2018-10-03', end_date=None, use_mase=True):
+def calculate_error_df(predictions, drift_loc, start_date='2018-10-03', end_date=None, use_mase=True):
     if use_mase:
-        drift_df = pd.read_csv('../data/drift_out_results.csv')
+        drift_df = pd.read_csv(drift_loc)
     error_df = pd.DataFrame()
     for player in predictions.loc[:, 'name'].unique():
         mfe, mae, rmse = calculate_errors(
@@ -102,21 +102,13 @@ def calculate_error_df(predictions, start_date='2018-10-03', end_date=None, use_
         error_df = error_df.reset_index(drop=True)
     return error_df
 
-def generate_error_df(predictions_file_list=None, data_file=None, metric='mase'):
-    if predictions_file_list is None:
-        predictions_file_list = ['../data/drift_out_results.csv',
-                                 '../data/arima_results_m3.p',
-                                 '../data/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
-                                 '../data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
-                                 '../data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv']
+def generate_error_df(predictions_file_list, data_loc, drift_loc, metric='mase'):
     output_df = pd.DataFrame()
     for prediction_file in predictions_file_list:
         if metric == 'mase' and 'drift' in prediction_file:
             continue
         if prediction_file.split('.')[-1] == 'p':
-            if data_file is None:
-                data_file = '../data/full_dataset_4_seasons.csv'
-            data = pd.read_csv(data_file)
+            data = pd.read_csv(data_loc)
             results = pd.read_pickle(prediction_file)
             results.loc[:, 'name'] = results.index
             predictions = pd.DataFrame()
@@ -129,9 +121,9 @@ def generate_error_df(predictions_file_list=None, data_file=None, metric='mase')
         else:
             predictions = pd.read_csv(prediction_file)
         if 'drift' in prediction_file:
-            error_df = calculate_error_df(predictions, start_date='2018-10-03', end_date=None)
+            error_df = calculate_error_df(predictions, drift_loc, start_date='2018-10-03', end_date=None)
         else:
-            error_df = calculate_error_df(predictions)
+            error_df = calculate_error_df(predictions, drift_loc)
         error_df = pd.DataFrame({'name.{}'.format(prediction_file.split('/')[-1].split('.')[0]): error_df.loc[:, 'name'],
                                  prediction_file.split('/')[-1].split('.')[0]: error_df.loc[:, metric]})
         output_df = pd.concat([output_df, error_df], axis=1)

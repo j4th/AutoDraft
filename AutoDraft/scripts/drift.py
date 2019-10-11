@@ -6,7 +6,7 @@ import streamlit as st
 import autodraft.visualization as viz
 
 @st.cache
-def load_csv(path='./data/full_dataset_4_seasons.csv'):
+def load_csv(path='../../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 

@@ -9,7 +9,7 @@ import numpy as np
 from pandas.io.json import json_normalize
 
 @st.cache
-def get_data(path='data/full_dataset_4_seasons.csv'):
+def get_data(path='../../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 

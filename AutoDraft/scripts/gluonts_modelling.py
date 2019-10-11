@@ -16,12 +16,12 @@ from sklearn import preprocessing
 from pathlib import Path
 
 @st.cache
-def get_data(path='../data/full_dataset_4_seasons.csv'):
+def get_data(path='../../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
 @st.cache
-def get_roster(path='../data/full_roster_4_seasons.csv'):
+def get_roster(path='../../data/input/full_roster_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -248,6 +248,7 @@ def days_since_last_game(data, scale=True):
 # @st.cache
 def run_model(data_train,
               data_meta,
+              save_path,
               num_epochs=50,
               lr=1e-3,
               batch_size=64,
@@ -255,8 +256,7 @@ def run_model(data_train,
               context_length=3,
               num_layers=3,
               embedding_dimension=16,
-              context='cpu',
-              save_path="../data/models/"):
+              context='gpu'):
     estimator = DeepAREstimator(freq=data_meta['freq'],
                                 prediction_length=82,
                                 scaling=scaling,
@@ -274,7 +274,8 @@ def run_model(data_train,
 
 def main():
     ctx = mx.gpu()
-    data_ts = get_data('../data/full_dataset_4_seasons.csv')
+    print(ctx)
+    data_ts = get_data('../../data/input/full_dataset_4_seasons.csv')
     roster = get_roster()
     train_data, test_data, targets, targets_meta, stat_cat_features, dyn_cat_features, dyn_real_features, dyn_real_features_meta = prep_df(data_ts,
                                                                                                                                             roster,
@@ -356,13 +357,14 @@ def main():
     # while not train:
     #     pass
 
-    folder_path = '/home/ubuntu/AutoDraft/data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3_ed16'
+    folder_path = '../../data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3_ed16'
     if not os.path.isdir(folder_path):
         os.mkdir(folder_path)        
 
     
     predictor = run_model(train_ds,
                           data_meta,
+                          folder_path,
                           scaling=True,
                           num_epochs=300,
                           lr=1e-3,
@@ -370,8 +372,7 @@ def main():
                           num_layers=3,
                           context_length=3,
                           embedding_dimension=16,
-                          context=ctx,
-                          save_path=folder_path)
+                          context=ctx)
 
 
     pd.to_pickle(targets_meta, folder_path+'/targets_meta.p')

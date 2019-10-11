@@ -12,6 +12,7 @@ from gluonts.transform import FieldName
 from gluonts.evaluation.backtest import make_evaluation_predictions
 import autodraft.visualization as viz
 import autodraft.gluonts as glu
+import autodraft.api as nhl
 from bokeh.sampledata.perceptions import probly
 
 
@@ -21,7 +22,7 @@ def load_model(file_path):
     return model
 
 @st.cache
-def get_data(path='../data/full_dataset_4_seasons.csv'):
+def get_data(path='../../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -31,18 +32,18 @@ def get_data(path='../data/full_dataset_4_seasons.csv'):
 #     return data
 
 @st.cache
-def load_predictions(path='../data/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
+def load_predictions(path='../../data/output/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
     data = pd.read_csv(path, index_col=2)
     model_name = path.split('/')[-1].split('.')[0]
     return data, model_name
 
 @st.cache
 def load_joe():
-    joe = pd.read_csv('../data/joe_schmo_4_seasons.csv')
+    joe = pd.read_csv('../../data/input/joe_schmo_4_seasons.csv')
     return joe
 
 @st.cache
-def get_roster(path='../data/full_roster_4_seasons.csv'):
+def get_roster(path='../../data/input/full_roster_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
@@ -132,17 +133,48 @@ def generate_future(predictions, test_data, scaled='unit', scaling_loc=None):
 
 @st.cache
 def get_error_df():
-    error_df = viz.generate_error_df()
+    error_df = viz.generate_error_df(['../../data/output/drift_out_results.csv',
+                                      '../../data/output/arima_results_m3.p',
+                                      '../../data/output/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
+                                      '../../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
+                                      '../../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv'],
+                                     '../../data/input/full_dataset_4_seasons.csv',
+                                     '../../data/output/drift_out_results.csv')
     return error_df
 
 @st.cache
 def get_model_error_df(predictions):
-    model_error_df = viz.calculate_error_df(predictions, start_date='2018-10-03', end_date=None, use_mase=True)
+    model_error_df = viz.calculate_error_df(predictions, '../../data/output/drift_out_results.csv', start_date='2018-10-03', end_date=None, use_mase=True)
     return model_error_df
+
+# @st.cache
+def get_future_covars(data):
+    _, season_start, season_end = nhl.get_current_season()
+    # st.write(season_start.values, season_end.values)
+    schedule = nhl.get_schedule(season_start.values[0], season_end.values[0])
+    covars = schedule[['gameDate', 'teams.home.team.id', 'teams.away.team.id']]
+    covars = covars.rename({'gameDate': 'date',
+                            'teams.home.team.id': 'teamId',
+                            'teams.away.team.id': 'opponentId'}, axis=1)
+    st.dataframe(covars)
+    output_df = pd.DataFrame()
+    for player_name in data['name'].unique():
+        player_df = data[data['name'] == player_name]
+        player_team = player_df['teamId'].values[0]
+        player_schedule = covars[covars['teamId'] == player_team]
+        player_schedule['name'] = player_name
+        dslg, dslg_meta = glu.days_since_last_game(player_schedule)
+        st.write(player_schedule.shape)
+        st.dataframe(pd.DataFrame(dslg[0]))
+        player_schedule['dslg'] = dslg
+        output_df = pd.concat([output_df, player_schedule])
+        st.dataframe(output_df)
+        return
+    return output_df
 
 def main():
     st.write('Loading model...')
-    model_path = "../data/models/deepar_unit_s_ne300_lr1e-3_bs64_nl3_cl3"
+    model_path = "../../data/models/deepar_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3_ed16"
     model = load_model(model_path)
     st.write(type(model))
     st.write('Done!')
@@ -151,6 +183,10 @@ def main():
     data_ts = get_data()
     roster = get_roster()
     st.write('Done!')
+
+    get_future_covars(data_ts)
+    return
+
     train_data, test_data, targets, targets_meta, stat_cat_features, dyn_cat_features, dyn_real_features, dyn_real_features_meta = process_data(data_ts, roster)
     data_meta = glu.generate_metadata(train_data, test_data, index='gameNumber')
 
@@ -221,35 +257,35 @@ def main():
     # predictions.to_csv('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv')
     # # predictions.to_feather('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.feather')
 
-    joe = load_joe()
-    # st.write('Loading predictions...')
-    # predictions, model_name = load_predictions('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv')
-    # predictions = pd.read_feather('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.feather')
-    st.dataframe(predictions.head())
-    st.write('Done!')
+    # joe = load_joe()
+    # # st.write('Loading predictions...')
+    # # predictions, model_name = load_predictions('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv')
+    # # predictions = pd.read_feather('/home/ubuntu/AutoDraft/data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.feather')
+    # st.dataframe(predictions.head())
+    # st.write('Done!')
 
-    test_player = st.text_input('Player to predict:', 'Leon Draisaitl')
+    # test_player = st.text_input('Player to predict:', 'Leon Draisaitl')
 
-    errors = get_error_df()
-    st.dataframe(errors)
+    # errors = get_error_df()
+    # st.dataframe(errors)
 
-    viz.plot_actual_predictions_series(predictions,
-                                       None,
-                                       errors,
-                                       joe=joe,
-                                       model='deepar',
-                                       target='cumStatpoints',
-                                       player_name=test_player,
-                                       deepar_model_name=model_name)
+    # viz.plot_actual_predictions_series(predictions,
+    #                                    None,
+    #                                    errors,
+    #                                    joe=joe,
+    #                                    model='deepar',
+    #                                    target='cumStatpoints',
+    #                                    player_name=test_player,
+    #                                    deepar_model_name=model_name)
 
-    error_df = get_error_df()
-    st.dataframe(error_df.head())
+    # error_df = get_error_df()
+    # st.dataframe(error_df.head())
 
-    viz.ridge_plots(error_df)
+    # viz.ridge_plots(error_df)
 
-    st.text(viz.test_errors(error_df,
-                             dist1='deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3',
-                             dist2='deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3',
-                             report=True))
+    # st.text(viz.test_errors(error_df,
+    #                          dist1='deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3',
+    #                          dist2='deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3',
+    #                          report=True))
 
 main()

@@ -24,6 +24,16 @@ def get_seasons(streamlit=False):
     seasons_df.set_index('seasonId', inplace=True)
     return seasons_df
 
+def get_current_season():
+    season_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/seasons/current')
+    season = season_response.content
+    season_df = pd.read_json(season)
+    season_df = json_normalize(season_df.seasons)
+    season_id = season_df.seasonId
+    season_start = season_df.regularSeasonStartDate
+    season_end = season_df.regularSeasonEndDate
+    return season_id, season_start, season_end
+
 def get_teams(streamlit=False):
     """returns all teams FOR THE CURRENT SEASON"""
     teams_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/teams')
@@ -39,6 +49,20 @@ def get_teams(streamlit=False):
     teams_df = pd.read_json(teams)
     teams_df = json_normalize(teams_df.teams)
     return teams_df
+
+def get_schedule(start_date, end_date):
+    # teams = get_teams()
+    # st.dataframe(teams)
+    # output_df = pd.DataFrame()
+    schedule_response = rqsts.get('https://statsapi.web.nhl.com/api/v1/schedule?startDate={0}&endDate={1}'.format(start_date, end_date))
+    schedule = schedule_response.content
+    schedule = pd.read_json(schedule)
+    schedule = json_normalize(schedule.dates)
+    output_df = pd.DataFrame()
+    for game in schedule.games:
+        game_df = json_normalize(game)
+        output_df = pd.concat([output_df, game_df])
+    return output_df
 
 def get_roster(team_id=22, season_id=20182019, streamlit=False):
     """returns roster for given team and season"""
@@ -231,8 +255,8 @@ def assemble_multiplayer_stat_dataframe(player_id_list=None, season_id_list=None
         # player_small_df.rename(columns={stat: player_name}, inplace=True)
         multiplayer_df = pd.concat([multiplayer_df, player_small_df], axis=0)
         # save temp results
-        multiplayer_df.to_csv('./data/temp/'
-                              'assemble_multiplayer_stat_dataframe_TEMP.csv')
+        # multiplayer_df.to_csv('../../data/temp/'
+        #                       'assemble_multiplayer_stat_dataframe_TEMP.csv')
     multiplayer_df.reset_index(drop=True, inplace=True)
     if shape == 'rows': # TODO: fix this when required to feed data in a row-per-player fashion
         multiplayer_df = multiplayer_df.transpose()

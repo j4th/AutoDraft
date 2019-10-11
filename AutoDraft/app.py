@@ -15,44 +15,50 @@ import autodraft.visualization as viz
 import autodraft.gluonts as glu
 
 # @st.cache
-def load_arima(path='../data/arima_results_m3.p'):
+def load_arima(path='../data/output/arima_results_m3.p'):
     data = pd.read_pickle(path)
     return data
 
 @st.cache
-def get_data(path='../data/full_dataset_4_seasons.csv'):
+def get_data(path='../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
 @st.cache
-def load_nn(path='../data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
+def load_nn(path='../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
     data = pd.read_csv(path, index_col=2)
     model_name = path.split('/')[-1].split('.')[0]
     return data, model_name
 
 @st.cache
-def load_future(path='../data/deepar_20192020_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
+def load_future(path='../data/output/deepar_20192020_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv'):
     data = pd.read_csv(path)
     return data
 
 @st.cache
-def load_joe(path='../data/joe_schmo_4_seasons.csv'):
+def load_joe(path='../data/input/joe_schmo_4_seasons.csv'):
     joe = pd.read_csv(path)
     return joe
 
 @st.cache
-def load_leaderboard(path='../data/leaderboard_bad.csv'):
+def load_leaderboard(path='../data/output/leaderboard_bad.csv'):
     table = pd.read_csv(path)
     return table
 
 @st.cache
-def load_roster(path='../data/full_roster_4_seasons.csv'):
+def load_roster(path='../data/input/full_roster_4_seasons.csv'):
     roster = pd.read_csv(path)
     return roster
 
 @st.cache
 def get_error_df():
-    error_df = viz.generate_error_df()
+    error_df = viz.generate_error_df(['../data/output/drift_out_results.csv',
+                                      '../data/output/arima_results_m3.p',
+                                      '../data/output/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
+                                      '../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv',
+                                      '../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl82_cl3.csv'],
+                                     '../data/input/full_dataset_4_seasons.csv',
+                                     '../data/output/drift_out_results.csv')
     return error_df
 
 # @st.cache
@@ -134,8 +140,8 @@ def assemble_diagnoses(data, errors, roster, model='deepar_truncated_results_mv_
 #     return fig
 
 def main():
-    predictions_deepar, deepar_name = load_nn('../data/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
-    predictions_mv, mv_name = load_nn('../data/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
+    predictions_deepar, deepar_name = load_nn('../data/output/deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
+    predictions_mv, mv_name = load_nn('../data/output/deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3.csv')
     predictions_arima = load_arima()
     predictions_future = load_future()
     leaderboard = process_future(predictions_future)
@@ -157,14 +163,7 @@ def main():
     st.title('AutoDraft')
     st.write('Welcome to AutoDraft! The intention of this app '
              'is to give predictive insights into which players '
-             'will either under or over perform in the coming season, and WHEN. '
-             'For quick insights, here is the table of the top 5 '
-             'players by projected cumulative points for the coming season '
-             'according to DeepAR (more on this below): ')
-
-    head_length = st.sidebar.selectbox('Select number of places in the upcoming season leaderboard to view: ', [5, 10, 15, 20], 0)
-
-    st.dataframe(leaderboard['name'].head(int(head_length)))
+             'will either under or over perform in the coming season, and WHEN. ')
 
     st.header('Individual Player Predictions')
     st.write('Please feel free to change the model that is being used '
@@ -223,6 +222,20 @@ def main():
                                             target='cumStatpoints',
                                             player_name=player_choice,
                                             deepar_model_name=deepar_name)
+
+    st.header('2019/2020 Leaderboards')
+    st.write('Here is the leaderboard for cumulative points, '
+             'forecasted by DeepAR, for the coming season. '
+             'Though there are numerical stability issues for '
+             'forecasting into the coming season, the relative '
+             'rankings seem to not only be plausible, '
+             'but somewhat in line with other expert sources. '
+             'Feel free to change the amount of players included in '
+             'the leaderboard by adjusting it on the sidebar.')
+
+    head_length = st.sidebar.selectbox('Select number of places in the upcoming season leaderboard to view: ', [5, 10, 15, 20], 0)
+
+    st.dataframe(leaderboard['name'].head(int(head_length)))
 
     # viz.ridge_plots(errors[['arima_results_m3', 'deepar_truncated_results_unit_s_ne300_lr1e-3_bs64_nl3_cl3', 'deepar_truncated_results_mv_unit_s_ne300_lr1e-3_bs64_nl3_cl3']])
     # st.write(errors['arima_results_m3'].median())

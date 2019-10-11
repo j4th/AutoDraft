@@ -15,8 +15,8 @@ from pandas.io.json import json_normalize
 # Let's grab our API keys from where they are stored.
 
 #%%
-global_hockey_API_key = open('./keys/sportsradar-global-ice-hockey.txt', mode='r').readline().strip()
-NHL_API_key = open('./keys/sportsradar-NHL.txt', mode='r').readline().strip()
+global_hockey_API_key = open('../../keys/sportsradar-global-ice-hockey.txt', mode='r').readline().strip()
+NHL_API_key = open('../../keys/sportsradar-NHL.txt', mode='r').readline().strip()
 
 #%% [markdown]
 # Now let's see what all we have on the "global" scale.

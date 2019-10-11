@@ -330,10 +330,10 @@ def assemble_target(data, feature='cumStatpoints', stand=False, scale=True):
 
 def run_model(data_train,
               data_meta,
+              save_path,
               num_epochs = 50,
               lr=1e-3,
-              batch_size=64,
-              save_path="data/models/"):
+              batch_size=64):
     estimator = DeepAREstimator(freq=data_meta['freq'],
                                 prediction_length=data_meta['prediction_length'],
                                 trainer=Trainer(batch_size=batch_size,

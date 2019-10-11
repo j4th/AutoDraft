@@ -6,19 +6,19 @@ import streamlit as st
 import autodraft.visualization as viz
 
 @st.cache
-def load_csv(path='./data/full_dataset_4_seasons.csv'):
+def load_csv(path='../../data/input/full_dataset_4_seasons.csv'):
     data = pd.read_csv(path)
     return data
 
 @st.cache(ignore_hash=True)
-def load_results(path='./data/arima_results_m3.p'):
+def load_results(path='../../data/output/arima_results_m3.p'):
     data = pd.read_pickle(path)
     data.loc[:, 'name'] = data.index
     data.drop_duplicates('name', inplace=True)
     return data
 
 @st.cache(ignore_hash=True)
-def load_transformed_results(path='./data/arima_results_m3_yj.p'):
+def load_transformed_results(path='../../data/output/arima_results_m3_yj.p'):
     data = pd.read_pickle(path)
     data.loc[:, 'name'] = data.index
     data.drop_duplicates('name', inplace=True)
@@ -27,7 +27,7 @@ def load_transformed_results(path='./data/arima_results_m3_yj.p'):
 def main():
     data = load_csv()
     results = load_results()
-    results_yj = load_transformed_results('./data/arima_results_m3_yj.p')
+    results_yj = load_transformed_results('../../data/output/arima_results_m3_yj.p')
 
     st.text('Stats data shape: {0}\nARIMA results shape: {1}'.format(data.shape, results.shape))
     # st.write('Stat dataframe head:')
