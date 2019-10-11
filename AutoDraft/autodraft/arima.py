@@ -147,7 +147,7 @@ def player_arima(data,
                               index=[player_name])
     return results_df
 
-def all_player_arima(data, roster, transform='none', print_status=False):
+def all_player_arima(data, roster, save_loc, transform='none', print_status=False):
     """ performs Auto_ARIMA on all players in a given roster """
     if print_status:
         print('Running Auto-ARIMAs...')
@@ -162,7 +162,7 @@ def all_player_arima(data, roster, transform='none', print_status=False):
             continue
         st.dataframe(player_results)
         results = pd.concat([results, player_results])
-        results.to_pickle('./data/temp/arima_results_TEMP.p')
+        results.to_pickle(save_loc)
     if print_status:
         print('Done!')
     return results

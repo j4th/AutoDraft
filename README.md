@@ -37,3 +37,5 @@ As mentioned earlier, there are some modules that are included within this repo,
  - `gluonts.py`: Module for performing DeepAR modelling and predictions; could be extended to any [GluonTS](https://gluon-ts.mxnet.io/) model.
  - `visualization.py`: Module for visualizing model output and performance, largely through leveraging [Bokeh](https://bokeh.pydata.org/en/latest/index.html).
 All of these can be found in `AutoDraft/autodraft/`, and can be imported using `import autodraft` within the working folder.
+
+## Included Data

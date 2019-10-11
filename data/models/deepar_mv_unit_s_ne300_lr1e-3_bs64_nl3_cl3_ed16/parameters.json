@@ -1,0 +1,1 @@
+{"batch_size": 64, "ctx": {"__kind__": "instance", "args": ["gpu", 0], "class": "mxnet.context.Context"}, "float_type": {"__kind__": "type", "class": "numpy.float32"}, "forecast_cls_name": "SampleForecast", "forecast_kwargs": {}, "freq": "1D", "input_names": ["feat_static_cat", "past_time_feat", "past_target", "past_observed_values", "future_time_feat"], "prediction_length": 82}

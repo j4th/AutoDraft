@@ -4,6 +4,8 @@ AutoDraft/.streamlit
 .streamlit
 data/temp/
 AutoDraft/.pylintrc
+data/rxiv/
+pandas/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
